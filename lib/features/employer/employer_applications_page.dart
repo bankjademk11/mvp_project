@@ -35,13 +35,13 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.jobId != null ? 'ผู้สมัครงาน' : 'ใบสมัครทั้งหมด'),
+        title: Text(widget.jobId != null ? 'ຜູ້ສະໝັກງານ' : 'ໃບສະໝັກທັ້ງໜົດ'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           tabs: const [
-            Tab(text: 'ทั้งหมด'),
+            Tab(text: 'ທั้งหมด'),
             Tab(text: 'รอพิจารณา'),
             Tab(text: 'ผ่านเข้ารอบ'),
             Tab(text: 'ไม่ผ่าน'),
@@ -122,14 +122,14 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
             ),
             const SizedBox(height: 16),
             Text(
-              'ไม่มีใบสมัคร',
+              'ບໍ່ມີໃບສະໝັກ',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.grey.shade600,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'ยังไม่มีผู้สมัครในสถานะนี้',
+              'ຍັງບໍ່ມີຜູ້ສະໝັກໃນສະຖານະບານນີ້',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade500,
               ),
@@ -294,7 +294,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'สมัครเมื่อ: ${application['appliedDate']}',
+                    'ສະໝັກເມື່ອ: ${application['appliedDate']}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade500,
                     ),
@@ -436,7 +436,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
               
               // หัวข้อ
               Text(
-                'รายละเอียดผู้สมัคร',
+                'ລາຍລະອຽດຜູ້ສະໝັກ',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -454,8 +454,8 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                       _buildDetailItem('อีเมล', application['email']),
                       _buildDetailItem('เบอร์โทร', application['phone']),
                       _buildDetailItem('ที่อยู่', application['location']),
-                      _buildDetailItem('ตำแหน่งที่สมัคร', application['position']),
-                      _buildDetailItem('ประสบการณ์', '${application['experience']} ปี'),
+                      _buildDetailItem('ຕໍາແໜ່ງທີ່ສະໝັກ', application['position']),
+                      _buildDetailItem('ປະສົບການ', '${application['experience']} ປີ'),
                       
                       const SizedBox(height: 16),
                       Text(
@@ -479,7 +479,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                       if (application['coverLetter'] != null) ...[
                         const SizedBox(height: 16),
                         Text(
-                          'จดหมายสมัครงาน',
+                          'ຈົດຫມາຍສະໝັກງານ',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -545,11 +545,11 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
       case 'approve':
         _showConfirmDialog(
           context, 
-          'อนุมัติใบสมัคร',
-          'คุณต้องการอนุมัติใบสมัครของ ${application['applicantName']} หรือไม่?',
+          'ອະນຸມັດໃບສະໝັກ',
+          'ທ່ານຕ້ອງການອະນຸມັດໃບສະໝັກຂອງ ${application['applicantName']} ຫຼືບໍ່?',
           () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('อนุมัติใบสมัครเรียบร้อยแล้ว')),
+              const SnackBar(content: Text('ອະນຸມັດໃບສະໝັກເລຍບຮ້ອຍແລ້ວ')),
             );
           },
         );
@@ -557,18 +557,18 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
       case 'reject':
         _showConfirmDialog(
           context, 
-          'ไม่อนุมัติใบสมัคร',
-          'คุณต้องการไม่อนุมัติใบสมัครของ ${application['applicantName']} หรือไม่?',
+          'ບໍ່ອະນຸມັດໃບສະໝັກ',
+          'ທ່ານຕ້ອງການບໍ່ອະນຸມັດໃບສະໝັກຂອງ ${application['applicantName']} ຫຼືບໍ່?',
           () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('ไม่อนุมัติใบสมัครเรียบร้อยแล้ว')),
+              const SnackBar(content: Text('ບໍ່ອະນຸມັດໃບສະໝັກເລຍບຮ້ອຍແລ້ວ')),
             );
           },
         );
         break;
       case 'interview':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ฟีเจอร์นัดสัมภาษณ์กำลังพัฒนา')),
+          const SnackBar(content: Text('ຟີເຈີນັດສຳພາດກຳລັງພັດທະນາ')),
         );
         break;
       case 'message':
@@ -591,14 +591,14 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
+            child: const Text('ຍົກເລີກ'),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               onConfirm();
             },
-            child: const Text('ยืนยัน'),
+            child: const Text('ຢືນຢັນ'),
           ),
         ],
       ),

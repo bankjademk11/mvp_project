@@ -112,7 +112,7 @@ class NotificationButton extends ConsumerWidget {
       child: TextButton.icon(
         onPressed: onPressed ?? () => context.push('/notifications'),
         icon: const Icon(Icons.notifications_outlined),
-        label: Text(text ?? 'การแจ้งเตือน'),
+        label: Text(text ?? 'ການແຈ້ງເຕືອນ'),
       ),
     );
   }

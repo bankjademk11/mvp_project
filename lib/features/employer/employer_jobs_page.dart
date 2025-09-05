@@ -376,7 +376,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ປິດງານ'),
-        content: Text('คุณຕ้องการປິດຮັບສະມັກງານ "${job['title']}" หรือไม่?'),
+        content: Text('ທ່ານຕ້ອງການປິດຮັບສະໝັກງານ "${job['title']}" ຫຼືບໍ່?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -386,7 +386,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage>
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ປິດງານເຂົ້າໃໝ່')),
+                const SnackBar(content: Text('ປິດງານເລຍບຮ້ອຍແລ້ວ')),
               );
             },
             child: const Text('ປິດງານ'),
@@ -401,7 +401,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ເປີດງານໃໝ່'),
-        content: Text('คุณຕ้องการປິດຮັບສະມັກງານ "${job['title']}" ใหม่หรือไม่?'),
+        content: Text('ທ່ານຕ້ອງການເປີດຮັບສະໝັກງານ "${job['title']}" ໃໝ່ຫຼືບໍ່?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -411,7 +411,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage>
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ເປີດງານໃໝ່ເຂົ້າໃໝ່')),
+                const SnackBar(content: Text('ເປີດງານໃໝ່ເລຍບຮ້ອຍແລ້ວ')),
               );
             },
             child: const Text('ເປີດໃໝ່'),
@@ -430,10 +430,10 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('คุณຕ้องการລົບງານ "${job['title']}" หรือไม่?'),
+            Text('ທ່ານຕ້ອງການລົບງານ "${job['title']}" ຫຼືບໍ່?'),
             const SizedBox(height: 8),
             const Text(
-              'ການລົບງານຈະເຮັດให้ຂໍ້ມູນທັງໝົດຫາຍໄປ ແລະບໍ່ສາມາດກົ້ນຄົວໄດ້',
+              'ການລົບງານຈະເຮັດໃຫ້ຂໍ້ມູນທັງໝົດຫາຍໄປ ແລະບໍ່ສາມາດກັບຄືນໄດ້',
               style: TextStyle(
                 color: Colors.red,
                 fontSize: 12,
@@ -453,7 +453,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage>
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ລົບງານເຂົ້າໃໝ່')),
+                const SnackBar(content: Text('ລົບງານເລຍບຮ້ອຍແລ້ວ')),
               );
             },
             child: const Text('ລົບ'),

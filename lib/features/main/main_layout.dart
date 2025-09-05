@@ -34,17 +34,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       NavigationDestination(
         icon: const Icon(Icons.dashboard_outlined),
         selectedIcon: const Icon(Icons.dashboard),
-        label: 'แดชบอร์ด',
+        label: 'ແດຊບອີດ',
       ),
       NavigationDestination(
         icon: const Icon(Icons.work_outline),
         selectedIcon: const Icon(Icons.work),
-        label: 'จัดการงาน',
+        label: 'ຈັດການງານ',
       ),
       NavigationDestination(
         icon: const Icon(Icons.people_outline),
         selectedIcon: const Icon(Icons.people),
-        label: 'ผู้สมัคร',
+        label: 'ຜູ້ສະໝັກ',
       ),
       NavigationDestination(
         icon: const Icon(Icons.chat_bubble_outline),
@@ -73,7 +73,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       NavigationDestination(
         icon: const Icon(Icons.bookmark_outline),
         selectedIcon: const Icon(Icons.bookmark),
-        label: 'บุ๊กมาร์ก',
+        label: 'ບຸກມາກ',
       ),
       NavigationDestination(
         icon: const Icon(Icons.chat_bubble_outline),
@@ -164,7 +164,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       ) : (isEmployer && _selectedIndex == 1) ? FloatingActionButton.extended(
         onPressed: () => context.push('/post-job'),
         icon: const Icon(Icons.add),
-        label: const Text('โพสต์งานใหม่'),
+        label: const Text('ໂພສຕ້ງານໃຫມ່'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ) : null,
