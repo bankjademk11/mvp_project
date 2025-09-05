@@ -1,0 +1,15 @@
+{
+  "uid": "demo_user",
+  "role": "seeker",
+  "displayName": "ທ່ານ ທົດລອງ",
+  "email": "demo@example.com",
+  "phone": "+85620-000000",
+  "province": "Vientiane Capital",
+  "skills": [
+    "Flutter",
+    "UI Design",
+    "SQL"
+  ],
+  "bio": "ນັກພັດທະນາແອັບພິເຄຊັນທີ່ພຶ່ງຈົບ ສົນໃຈງານດ້ານ IT ແລະ ລະບົບ ERP",
+  "resumeUrl": ""
+}

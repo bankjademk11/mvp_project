@@ -1,0 +1,160 @@
+{
+  "chats": [
+    {
+      "chatId": "chat_001",
+      "withUserId": "applicant_001",
+      "withName": "ສົມໄຊ ໃຈດີ",
+      "withAvatar": null,
+      "applicationPosition": "ນັກພັດທະນາ Flutter",
+      "lastMessage": {
+        "id": "msg_003",
+        "senderId": "applicant_001",
+        "senderName": "ສົມໄຊ ໃຈດີ",
+        "text": "ຂອບໃຈທີ່ໄດ້ລົງສົນທະນາກັບທ່ານ ແລະໄດ້ຮັບຄວາມສົນໃຈກີ່ກັບໂຄງການນີ້ ຂໍ້ຄໍາຖາມໃບຕື່ຄັບາ",
+        "createdAt": "2025-09-05T15:40:00Z",
+        "isRead": false,
+        "type": "text",
+        "status": "sent"
+      },
+      "unreadCount": 2,
+      "lastActivity": "2025-09-05T15:40:00Z",
+      "isOnline": true,
+      "messages": [
+        {
+          "id": "msg_001",
+          "senderId": "applicant_001",
+          "senderName": "ສົມໄຊ ໃຈດີ",
+          "text": "ສະບາຍດີຄັບ ຂ້າພເຈົ້າສະໝັກງານຕໍາແໜ່ງນັກພັດທະນາ Flutter ທີ່ບໍລິສັດຂອງທ່ານ",
+          "createdAt": "2025-09-05T14:00:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        },
+        {
+          "id": "msg_002",
+          "senderId": "employer",
+          "senderName": "ນາຍຈ້າງ",
+          "text": "ສະບາຍດີຄັບ ຂອບໃຈກີ່ກັບເກາະເລີກຄົນຂອງທ່ານກ່ອນ ທ່ານມີປະສົບການຈັກການ Flutter ຈັກປີຫວາ?",
+          "createdAt": "2025-09-05T14:05:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        },
+        {
+          "id": "msg_003",
+          "senderId": "applicant_001",
+          "senderName": "ສົມໄຊ ໃຈດີ",
+          "text": "ຂອບໃຈທີ່ໄດ້ລົງສົນທະນາກັບທ່ານ ແລະໄດ້ຮັບຄວາມສົນໃຈກີ່ກັບໂຄງການນີ້ ຂໍ້ຄໍາຖາມໃບຕື່ຄັບາ",
+          "createdAt": "2025-09-05T15:40:00Z",
+          "isRead": false,
+          "type": "text",
+          "status": "sent"
+        }
+      ]
+    },
+    {
+      "chatId": "chat_002",
+      "withUserId": "applicant_002",
+      "withName": "ສົມຍິງ ຮັກງານ",
+      "withAvatar": null,
+      "applicationPosition": "UI/UX Designer",
+      "lastMessage": {
+        "id": "msg_006",
+        "senderId": "employer",
+        "senderName": "ນາຍຈ້າງ",
+        "text": "ເດີນຂ້າພເຈົ້າສະໝັກງານ UI/UX ກັບພວກເຮາ ເລຍສີທີ່ຜູ້ຈັດການທີ່ຜ່ານມາແລ້ວຂອງເຈົ້າ",
+        "createdAt": "2025-09-05T11:20:00Z",
+        "isRead": true,
+        "type": "text",
+        "status": "sent"
+      },
+      "unreadCount": 0,
+      "lastActivity": "2025-09-05T11:20:00Z",
+      "isOnline": false,
+      "messages": [
+        {
+          "id": "msg_004",
+          "senderId": "applicant_002",
+          "senderName": "ສົມຍິງ ຮັກງານ",
+          "text": "ສະບາຍດີຄັບ ຂ້າພເຈົ້າສະໝັກງານ UI/UX Designer ແລະຢາກຖາມລາຍລະອຽດກີ່ກັບງານນີ້",
+          "createdAt": "2025-09-05T10:00:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        },
+        {
+          "id": "msg_005",
+          "senderId": "employer",
+          "senderName": "ນາຍຈ້າງ",
+          "text": "ຂອບໃຈທີ່ໄດ້ຮັບໃບສະໝັກຂອງທ່ານ ໄດ້ສົ່ງ portfolio ລະຜົນງານທີ່ຜ່ານມາໃຫ້ດູໄດ້ໄດ້ຄັບ?",
+          "createdAt": "2025-09-05T10:30:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        },
+        {
+          "id": "msg_006",
+          "senderId": "employer",
+          "senderName": "ນາຍຈ້າງ",
+          "text": "ເດີນຂ້າພເຈົ້າສະໝັກງານ UI/UX ກັບພວກເຮາ ເລຍສີທີ່ຜູ້ຈັດການທີ່ຜ່ານມາແລ້ວຂອງເຈົ້າ",
+          "createdAt": "2025-09-05T11:20:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        }
+      ]
+    },
+    {
+      "chatId": "chat_003",
+      "withUserId": "applicant_003",
+      "withName": "ວິໄຊ ຂະຍັນ",
+      "withAvatar": null,
+      "applicationPosition": "Project Manager",
+      "lastMessage": {
+        "id": "msg_009",
+        "senderId": "applicant_003",
+        "senderName": "ວິໄຊ ຂະຍັນ",
+        "text": "ຂອບໃຈກີ່ກັບປະສົບການທມແນວທາງທີ່ຂ້າພເຈົ້າມີທີ່ກໍລິກາບໍລິສັດ",
+        "createdAt": "2025-09-04T16:30:00Z",
+        "isRead": true,
+        "type": "text",
+        "status": "sent"
+      },
+      "unreadCount": 0,
+      "lastActivity": "2025-09-04T16:30:00Z",
+      "isOnline": false,
+      "messages": [
+        {
+          "id": "msg_007",
+          "senderId": "applicant_003",
+          "senderName": "ວິໄຊ ຂະຍັນ",
+          "text": "ສະບາຍດີຄັບ ຂ້າພເຈົ້າສະໝັກງານຕໍາແໜ່ງ Project Manager ທີ່ບໍລິສັດຂອງທ່ານ",
+          "createdAt": "2025-09-04T15:00:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        },
+        {
+          "id": "msg_008",
+          "senderId": "employer",
+          "senderName": "ນາຍຈ້າງ",
+          "text": "ສະບາຍດີ ຂອບໃຈທີ່ໄດ້ຮັບໃບສະໝັກ ທ່ານມີປະສົບການຈັດການ project ຂອງບໍລິສັດອີກໄດ້ໄດ້ຄັບ?",
+          "createdAt": "2025-09-04T15:15:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        },
+        {
+          "id": "msg_009",
+          "senderId": "applicant_003",
+          "senderName": "ວິໄຊ ຂະຍັນ",
+          "text": "ຂອບໃຈກີ່ກັບປະສົບການທມແນວທາງທີ່ຂ້າພເຈົ້າມີທີ່ກໍລິກາບໍລິສັດ",
+          "createdAt": "2025-09-04T16:30:00Z",
+          "isRead": true,
+          "type": "text",
+          "status": "sent"
+        }
+      ]
+    }
+  ]
+}

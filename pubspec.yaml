@@ -1,0 +1,31 @@
+name: mvp_package_ui
+description: "MVP Job Portal UI (Flutter) — light blue theme, 108job-style UX"
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^16.2.1
+  google_fonts: ^6.2.1
+  intl: ^0.20.2
+
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/mock_jobs.json
+    - assets/mock_chats.json
+    - assets/mock_profile.json
+    - assets/images/

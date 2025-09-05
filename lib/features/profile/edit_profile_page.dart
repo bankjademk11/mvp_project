@@ -1,0 +1,579 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../services/mock_api.dart';
+import '../../services/auth_service.dart';
+import '../../services/file_upload_service.dart';
+import '../../common/widgets/primary_button.dart';
+import '../../services/language_service.dart';
+
+class EditProfilePage extends ConsumerStatefulWidget {
+  const EditProfilePage({super.key});
+
+  @override
+  ConsumerState<EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends ConsumerState<EditProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _bioController = TextEditingController();
+  
+  String? _selectedProvince;
+  List<String> _selectedSkills = [];
+  String? _profilePictureUrl;
+  String? _resumeUrl;
+  bool _isLoading = false;
+  bool _isDataLoaded = false;
+  
+  final List<String> _provinces = [
+    'Vientiane Capital',
+    'Luang Prabang',
+    'Savannakhet',
+    'Champasak',
+    'Khammouane',
+    'Bolikhamsai',
+    'Oudomxay',
+    'Bokeo',
+    'Phongsaly',
+    'Luang Namtha',
+    'Xayaboury',
+    'Xiangkhouang',
+    'Vientiane Province',
+    'Borikhamxay',
+    'Khammuane',
+    'Salavan',
+    'Sekong',
+    'Attapeu',
+  ];
+  
+  final List<String> _availableSkills = [
+    'Flutter', 'React', 'Node.js', 'Python', 'Java', 'JavaScript',
+    'Sales', 'Marketing', 'Design', 'Management', 'Leadership',
+    'Customer Service', 'Data Analysis', 'Accounting', 'Finance',
+    'Project Management', 'Communication', 'Problem Solving',
+    'Teamwork', 'Time Management', 'Microsoft Office',
+    'Adobe Creative Suite', 'Social Media', 'SEO', 'Content Writing',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfileData() async {
+    try {
+      final profile = await MockApi.loadProfile();
+      final user = ref.read(authProvider).user;
+      
+      if (mounted) {
+        setState(() {
+          _nameController.text = user?.displayName ?? profile['displayName'] ?? '';
+          _phoneController.text = profile['phone'] ?? '';
+          _bioController.text = profile['bio'] ?? '';
+          _selectedProvince = profile['province'];
+          _selectedSkills = List<String>.from(profile['skills'] ?? []);
+          _profilePictureUrl = profile['avatarUrl'];
+          _resumeUrl = profile['resumeUrl'];
+          _isDataLoaded = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        final languageState = ref.read(languageProvider);
+        final languageCode = languageState.languageCode;
+        final errorLoading = AppLocalizations.translate('error_loading_data', languageCode);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$errorLoading: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // In a real app, this would update the backend and user state
+      // For now, we'll just show success message
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        final languageState = ref.read(languageProvider);
+        final languageCode = languageState.languageCode;
+        final profileSaved = AppLocalizations.translate('profile_saved', languageCode);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(profileSaved),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        final languageState = ref.read(languageProvider);
+        final languageCode = languageState.languageCode;
+        final error = AppLocalizations.translate('error', languageCode);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleSkill(String skill) {
+    setState(() {
+      if (_selectedSkills.contains(skill)) {
+        _selectedSkills.remove(skill);
+      } else {
+        _selectedSkills.add(skill);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final languageState = ref.watch(languageProvider);
+    final languageCode = languageState.languageCode;
+    
+    // Get translations
+    final editProfile = AppLocalizations.translate('edit_profile', languageCode);
+    final tapToChange = AppLocalizations.translate('tap_to_change_profile_picture', languageCode);
+    final personalInfo = AppLocalizations.translate('personal_info', languageCode);
+    final fullName = AppLocalizations.translate('full_name', languageCode);
+    final enterFullName = AppLocalizations.translate('enter_full_name', languageCode);
+    final enterFullNameError = AppLocalizations.translate('enter_full_name_error', languageCode);
+    final nameMinLengthError = AppLocalizations.translate('name_min_length_error', languageCode);
+    final phone = AppLocalizations.translate('phone', languageCode);
+    final enterPhoneHint = AppLocalizations.translate('enter_phone_hint', languageCode);
+    final invalidPhoneError = AppLocalizations.translate('invalid_phone_error', languageCode);
+    final province = AppLocalizations.translate('province', languageCode);
+    final about = AppLocalizations.translate('about', languageCode);
+    final introduceYourself = AppLocalizations.translate('introduce_yourself', languageCode);
+    final enterBioHint = AppLocalizations.translate('enter_bio_hint', languageCode);
+    final bioMaxLengthError = AppLocalizations.translate('bio_max_length_error', languageCode);
+    final skills = AppLocalizations.translate('skills', languageCode);
+    final selectSkills = AppLocalizations.translate('select_skills', languageCode);
+    final selectedSkillsText = AppLocalizations.translate('selected_skills', languageCode);
+    final profilePictureAndDocuments = AppLocalizations.translate('profile_picture_and_documents', languageCode);
+    final profilePicture = AppLocalizations.translate('profile_picture', languageCode);
+    final uploadPicture = AppLocalizations.translate('upload_picture', languageCode);
+    final resume = AppLocalizations.translate('resume', languageCode);
+    final uploadCV = AppLocalizations.translate('upload_cv', languageCode);
+    final profileTip = AppLocalizations.translate('profile_tip', languageCode);
+    final saving = AppLocalizations.translate('saving', languageCode);
+    final save = AppLocalizations.translate('save', languageCode);
+    final featureComingSoon = AppLocalizations.translate('feature_coming_soon', languageCode);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(editProfile),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+      ),
+      body: !_isDataLoaded
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Profile Picture Section
+                    Container(
+                      width: double.infinity,
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Theme.of(context).colorScheme.primary,
+                                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _nameController.text.isNotEmpty
+                                        ? _nameController.text.substring(0, 1).toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(featureComingSoon),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            tapToChange,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Form Fields
+                    _buildFormSection(
+                      title: personalInfo,
+                      icon: Icons.person_outline,
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: fullName,
+                            hintText: enterFullName,
+                            prefixIcon: const Icon(Icons.person),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return enterFullNameError;
+                            }
+                            if (value.trim().length < 2) {
+                              return nameMinLengthError;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: phone,
+                            hintText: enterPhoneHint,
+                            prefixIcon: const Icon(Icons.phone),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
+                              if (value.length < 8) {
+                                return invalidPhoneError;
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _selectedProvince,
+                          decoration: InputDecoration(
+                            labelText: province,
+                            prefixIcon: const Icon(Icons.location_on),
+                          ),
+                          items: _provinces.map((province) {
+                            return DropdownMenuItem(
+                              value: province,
+                              child: Text(province),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedProvince = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    
+                    // Bio Section
+                    _buildFormSection(
+                      title: about,
+                      icon: Icons.description_outlined,
+                      children: [
+                        TextFormField(
+                          controller: _bioController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            labelText: introduceYourself,
+                            hintText: enterBioHint,
+                            prefixIcon: const Icon(Icons.edit_note),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) {
+                            if (value != null && value.length > 500) {
+                              return bioMaxLengthError;
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                    
+                    // Skills Section
+                    _buildFormSection(
+                      title: skills,
+                      icon: Icons.psychology_outlined,
+                      children: [
+                        Text(
+                          selectSkills,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _availableSkills.map((skill) {
+                            final isSelected = _selectedSkills.contains(skill);
+                            return FilterChip(
+                              label: Text(skill),
+                              selected: isSelected,
+                              onSelected: (_) => _toggleSkill(skill),
+                              selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                              checkmarkColor: Theme.of(context).colorScheme.primary,
+                            );
+                          }).toList(),
+                        ),
+                        if (_selectedSkills.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '$selectedSkillsText (${_selectedSkills.length}):',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _selectedSkills.join(', '),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    
+                    // File Upload Sections
+                    _buildFormSection(
+                      title: profilePictureAndDocuments,
+                      icon: Icons.file_upload_outlined,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FileUploadWidget(
+                                title: profilePicture,
+                                currentFileUrl: _profilePictureUrl,
+                                icon: Icons.account_circle_outlined,
+                                uploadButtonText: uploadPicture,
+                                onFileUploaded: (url) {
+                                  setState(() {
+                                    _profilePictureUrl = url;
+                                  });
+                                },
+                                isDocument: false,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: FileUploadWidget(
+                                title: resume,
+                                currentFileUrl: _resumeUrl,
+                                icon: Icons.description_outlined,
+                                uploadButtonText: uploadCV,
+                                onFileUploaded: (url) {
+                                  setState(() {
+                                    _resumeUrl = url;
+                                  });
+                                },
+                                isDocument: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.blue.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  profileTip,
+                                  style: const TextStyle(
+                                    color: Colors.blue,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Save Button
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      child: PrimaryButton(
+                        text: _isLoading ? saving : save,
+                        onPressed: _isLoading ? null : _saveProfile,
+                        loading: _isLoading,
+                        icon: _isLoading ? null : Icons.save,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildFormSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}

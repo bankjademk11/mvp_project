@@ -1,0 +1,53 @@
+[
+  {
+    "id": "job_001",
+    "title": "Sales Executive",
+    "companyName": "ODG Mall Co., Ltd.",
+    "companyLogo": "",
+    "province": "Vientiane Capital",
+    "type": "Full-time",
+    "salaryMin": 6000000,
+    "salaryMax": 9000000,
+    "tags": [
+      "Sales",
+      "Retail",
+      "CRM"
+    ],
+    "createdAt": "2025-08-30T09:00:00Z",
+    "description": "ຄວບຄຸມການຂາຍທັງໃນຮ້ານ ແລະ ອອນໄລນ໌ ຄຳປົງກັນລູກຄ້າ ລວບລວມຂໍ້ມູນ CRM ແລະ ສົ່ງບົດລາຍງານຍອດຂາຍປະຈໍາວັນ"
+  },
+  {
+    "id": "job_002",
+    "title": "Flutter Developer (Junior)",
+    "companyName": "NX Creations",
+    "companyLogo": "",
+    "province": "Vientiane Capital",
+    "type": "Contract",
+    "salaryMin": 8000000,
+    "salaryMax": 12000000,
+    "tags": [
+      "Flutter",
+      "Dart",
+      "Firebase"
+    ],
+    "createdAt": "2025-08-29T13:20:00Z",
+    "description": "ພັດທະນາແອັບພິເຄຊັນລະບົບສະໝັກງານ MVP ດ້ວຍ Flutter, ຮູ້ຈັກ Riverpod/GoRouter ແລະ ການເຊື່ອມຕໍ່ API"
+  },
+  {
+    "id": "job_003",
+    "title": "Warehouse Supervisor",
+    "companyName": "Odien Group",
+    "companyLogo": "",
+    "province": "Savannakhet",
+    "type": "Full-time",
+    "salaryMin": 7000000,
+    "salaryMax": 10000000,
+    "tags": [
+      "Logistics",
+      "WMS",
+      "Leadership"
+    ],
+    "createdAt": "2025-08-27T11:05:00Z",
+    "description": "ຄຳປົງທີມສາງສິນຄ້າ ວາງແຜນສະຕ໋ອກ ຮັບ-ຈ່າຍ ຄຳປົງຄຸນນະພາບເອກະສານ ແລະ ຄວາມຖືກຕ້ອງ"
+  }
+]
