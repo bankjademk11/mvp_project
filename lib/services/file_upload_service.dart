@@ -1,21 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:appwrite/appwrite.dart' as appwrite;
+import 'appwrite_service.dart';
 
-// Mock file upload service
 class FileUploadService {
+  final AppwriteService _appwriteService;
+  static const String _storageId = '68bbb97a003baa58bb9c'; // This should be your storage bucket ID
   
-  static Future<String?> uploadProfilePicture() async {
-    await Future.delayed(const Duration(seconds: 2));
-    return 'https://example.com/profile/image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+  FileUploadService(this._appwriteService);
+  
+  Future<String?> uploadProfilePicture(appwrite.InputFile file) async {
+    try {
+      final response = await _appwriteService.storage.createFile(
+        bucketId: _storageId,
+        fileId: appwrite.ID.unique(),
+        file: file,
+      );
+      
+      // Return the file URL
+      return 'https://fra.cloud.appwrite.io/v1/storage/buckets/$_storageId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to upload profile picture: ${e.message}');
+    }
   }
 
-  static Future<String?> uploadResume() async {
-    await Future.delayed(const Duration(seconds: 3));
-    return 'https://example.com/documents/resume_${DateTime.now().millisecondsSinceEpoch}.pdf';
+  Future<String?> uploadResume(appwrite.InputFile file) async {
+    try {
+      final response = await _appwriteService.storage.createFile(
+        bucketId: _storageId,
+        fileId: appwrite.ID.unique(),
+        file: file,
+      );
+      
+      // Return the file URL
+      return 'https://fra.cloud.appwrite.io/v1/storage/buckets/$_storageId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to upload resume: ${e.message}');
+    }
   }
 
-  static Future<void> deleteFile(String fileUrl) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // In real implementation, delete file from server
+  Future<void> deleteFile(String fileId) async {
+    try {
+      await _appwriteService.storage.deleteFile(
+        bucketId: _storageId,
+        fileId: fileId,
+      );
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to delete file: ${e.message}');
+    }
   }
 }
 
@@ -46,26 +77,26 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
   double _uploadProgress = 0.0;
 
   Future<void> _handleUpload() async {
+    // In a real implementation, you would use a file picker to get the file path
+    // For this example, we'll simulate with a placeholder
+    final filePath = '/path/to/your/file.jpg'; // This should be replaced with actual file path
+    final file = appwrite.InputFile(path: filePath);
+    
     setState(() {
       _isUploading = true;
       _uploadProgress = 0.0;
     });
     
     try {
-      for (int i = 0; i <= 100; i += 10) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        if (mounted) {
-          setState(() {
-            _uploadProgress = i / 100;
-          });
-        }
-      }
+      // Get Appwrite service
+      final appwriteService = AppwriteService();
+      final fileUploadService = FileUploadService(appwriteService);
       
       String? fileUrl;
       if (widget.isDocument) {
-        fileUrl = await FileUploadService.uploadResume();
+        fileUrl = await fileUploadService.uploadResume(file);
       } else {
-        fileUrl = await FileUploadService.uploadProfilePicture();
+        fileUrl = await fileUploadService.uploadProfilePicture(file);
       }
       
       widget.onFileUploaded(fileUrl);
@@ -100,6 +131,11 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
   Future<void> _handleDelete() async {
     if (widget.currentFileUrl == null) return;
     
+    // Extract file ID from URL (this is a simplified approach)
+    final uri = Uri.parse(widget.currentFileUrl!);
+    final pathSegments = uri.pathSegments;
+    final fileId = pathSegments[pathSegments.length - 2]; // Adjust based on actual URL structure
+    
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -121,7 +157,11 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
     
     if (confirmed == true) {
       try {
-        await FileUploadService.deleteFile(widget.currentFileUrl!);
+        // Get Appwrite service
+        final appwriteService = AppwriteService();
+        final fileUploadService = FileUploadService(appwriteService);
+        
+        await fileUploadService.deleteFile(fileId);
         widget.onFileUploaded(null);
         
         if (mounted) {

@@ -64,6 +64,14 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
     ref.listen(authProvider, (previous, next) {
       if (next.isAuthenticated) {
         context.go('/jobs');
+      } else if (next.error != null && next.error!.isNotEmpty) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t(next.error!)),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     });
     

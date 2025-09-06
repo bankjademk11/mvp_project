@@ -63,6 +63,24 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       }
     });
 
+    // เพิ่มการแปลข้อความข้อผิดพลาด
+    String getErrorMessage(String errorKey) {
+      switch (errorKey) {
+        case 'email_already_registered':
+          return t('email_already_registered');
+        case 'invalid_registration_data':
+          return t('invalid_registration_data');
+        case 'password_requirements_not_met':
+          return t('password_requirements_not_met');
+        case 'email_invalid':
+          return t('email_invalid');
+        case 'registration_failed':
+          return t('registration_failed');
+        default:
+          return errorKey;
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(t('register')),
@@ -111,7 +129,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            authState.error!,
+                            getErrorMessage(authState.error!),
                             style: const TextStyle(color: Colors.red),
                           ),
                         ),
@@ -162,13 +180,29 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 ),
                 const SizedBox(height: 16),
 
+                // Password requirements info
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 8 ໂຕອັກສອນ ລວມທັງຕົວພິມໃຫຍ່ ຕົວພິມນ້ອຍ ເລກ ແລະ ອັກສອນພິເສດ (!@#\$%^&*())',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
                 // Password field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: t('password'),
-                    hintText: t('password_min_length_hint'),
+                    hintText: 'ຢ່າງໜ້ອຍ 8 ໂຕອັກສອນ',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -187,8 +221,20 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     if (value == null || value.isEmpty) {
                       return t('password_required');
                     }
-                    if (value.length < 6) {
-                      return t('password_min_length');
+                    if (value.length < 8) {
+                      return 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 8 ໂຕອັກສອນ';
+                    }
+                    if (!value.contains(RegExp(r'[A-Z]'))) {
+                      return 'ລະຫັດຜ່ານຕ້ອງມີຕົວພິມໃຫຍ່ຢ່າງໜ້ອຍ 1 ໂຕ';
+                    }
+                    if (!value.contains(RegExp(r'[a-z]'))) {
+                      return 'ລະຫັດຜ່ານຕ້ອງມີຕົວພິມນ້ອຍຢ່າງໜ້ອຍ 1 ໂຕ';
+                    }
+                    if (!value.contains(RegExp(r'[0-9]'))) {
+                      return 'ລະຫັດຜ່ານຕ້ອງມີເລກຢ່າງໜ້ອຍ 1 ໂຕ';
+                    }
+                    if (!value.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'))) {
+                      return 'ລະຫັດຜ່ານຕ້ອງມີອັກສອນພິເສດຢ່າງໜ້ອຍ 1 ໂຕ';
                     }
                     return null;
                   },

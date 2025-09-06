@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/mock_api.dart';
 import '../../services/auth_service.dart';
 import '../../services/file_upload_service.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../services/language_service.dart';
+import '../../services/appwrite_service.dart';
 
 class EditProfilePage extends ConsumerStatefulWidget {
   const EditProfilePage({super.key});
@@ -72,18 +72,17 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
   Future<void> _loadProfileData() async {
     try {
-      final profile = await MockApi.loadProfile();
       final user = ref.read(authProvider).user;
       
       if (mounted) {
         setState(() {
-          _nameController.text = user?.displayName ?? profile['displayName'] ?? '';
-          _phoneController.text = profile['phone'] ?? '';
-          _bioController.text = profile['bio'] ?? '';
-          _selectedProvince = profile['province'];
-          _selectedSkills = List<String>.from(profile['skills'] ?? []);
-          _profilePictureUrl = profile['avatarUrl'];
-          _resumeUrl = profile['resumeUrl'];
+          _nameController.text = user?.displayName ?? '';
+          _phoneController.text = user?.phone ?? '';
+          _bioController.text = user?.bio ?? '';
+          _selectedProvince = user?.province;
+          _selectedSkills = user?.skills ?? [];
+          _profilePictureUrl = user?.avatarUrl;
+          _resumeUrl = user?.resumeUrl;
           _isDataLoaded = true;
         });
       }
@@ -111,11 +110,29 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     });
     
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      // Get Appwrite service
+      final appwriteService = ref.read(appwriteServiceProvider);
       
-      // In a real app, this would update the backend and user state
-      // For now, we'll just show success message
+      // Prepare profile data
+      final profileData = {
+        'phone': _phoneController.text,
+        'province': _selectedProvince,
+        'skills': _selectedSkills,
+        'bio': _bioController.text,
+        'avatarUrl': _profilePictureUrl,
+        'resumeUrl': _resumeUrl,
+      };
+      
+      // Update user profile in Appwrite database
+      await appwriteService.databases.updateDocument(
+        databaseId: '68bbb9e6003188d8686f',
+        collectionId: 'user_profiles',
+        documentId: ref.read(authProvider).user!.uid,
+        data: profileData,
+      );
+      
+      // Refresh user data
+      await ref.read(authProvider.notifier).getCurrentUser();
       
       if (mounted) {
         setState(() {
@@ -318,6 +335,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             }
                             return null;
                           },
+                          enabled: false, // Name is managed by Appwrite account
                         ),
                         const SizedBox(height: 16),
                         TextFormField(

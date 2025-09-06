@@ -16,7 +16,7 @@ class NotificationService extends StateNotifier<NotificationState> {
     state = state.copyWith(isLoading: true);
     
     try {
-      // TODO: เรียก API จริง
+      // ในตอนนี้เรายังใช้ Mock Data อยู่ แต่ในอนาคตจะเปลี่ยนเป็นเรียก API จริง
       await Future.delayed(const Duration(milliseconds: 500));
       
       final mockNotifications = [
@@ -89,7 +89,7 @@ class NotificationService extends StateNotifier<NotificationState> {
         actionUrl: actionUrl,
       );
 
-      // TODO: เรียก API เพิ่มการแจ้งเตือน
+      // ในตอนนี้เรายังใช้ Mock Data อยู่ แต่ในอนาคตจะเปลี่ยนเป็นเรียก API จริง
       await Future.delayed(const Duration(milliseconds: 300));
 
       final updatedNotifications = [newNotification, ...state.notifications];
@@ -107,7 +107,7 @@ class NotificationService extends StateNotifier<NotificationState> {
   // ทำเครื่องหมายว่าอ่านแล้ว
   Future<void> markAsRead(String notificationId) async {
     try {
-      // TODO: เรียก API อัพเดตสถานะ
+      // ในตอนนี้เรายังใช้ Mock Data อยู่ แต่ในอนาคตจะเปลี่ยนเป็นเรียก API จริง
       await Future.delayed(const Duration(milliseconds: 200));
 
       final updatedNotifications = state.notifications.map((notification) {
@@ -131,7 +131,7 @@ class NotificationService extends StateNotifier<NotificationState> {
   // ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว
   Future<void> markAllAsRead() async {
     try {
-      // TODO: เรียก API อัพเดตสถานะทั้งหมด
+      // ในตอนนี้เรายังใช้ Mock Data อยู่ แต่ในอนาคตจะเปลี่ยนเป็นเรียก API จริง
       await Future.delayed(const Duration(milliseconds: 300));
 
       final updatedNotifications = state.notifications.map((notification) {
@@ -150,7 +150,7 @@ class NotificationService extends StateNotifier<NotificationState> {
   // ลบการแจ้งเตือน
   Future<void> deleteNotification(String notificationId) async {
     try {
-      // TODO: เรียก API ลบการแจ้งเตือน
+      // ในตอนนี้เรายังใช้ Mock Data อยู่ แต่ในอนาคตจะเปลี่ยนเป็นเรียก API จริง
       await Future.delayed(const Duration(milliseconds: 300));
 
       final now = DateTime.now();
@@ -180,7 +180,7 @@ class NotificationService extends StateNotifier<NotificationState> {
   // ล้างการแจ้งเตือนทั้งหมด
   Future<void> clearAllNotifications() async {
     try {
-      // TODO: เรียก API ล้างการแจ้งเตือนทั้งหมด
+      // ในตอนนี้เรายังใช้ Mock Data อยู่ แต่ในอนาคตจะเปลี่ยนเป็นเรียก API จริง
       await Future.delayed(const Duration(milliseconds: 300));
 
       state = state.copyWith(

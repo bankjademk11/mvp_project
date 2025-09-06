@@ -1,67 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:appwrite/appwrite.dart';
+import 'package:appwrite/models.dart' as models;
 import '../models/user.dart';
-import 'mock_api.dart';
+import 'appwrite_service.dart'; // Import AppwriteService
 import 'language_service.dart'; // Added import for language service
 
 class AuthService {
-  static const String _mockEmail = 'demo@mvppackage.com';
-  static const String _mockPassword = '123456';
-  static const String _employerEmail = 'example1@gmail.com';
-  static const String _employerPassword = '123456';
+  final AppwriteService _appwriteService;
+  static const String _databaseId = '68bbb9e6003188d8686f';
+  static const String _userProfilesCollectionId = 'user_profiles';
+
+  AuthService(this._appwriteService); // Constructor to inject AppwriteService
 
   Future<User?> login(String email, String password) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Mock validation
-    if (email.isEmpty || password.isEmpty) {
-      throw Exception('email_required'); // Changed to use translation key
-    }
-    
-    if (!email.contains('@')) {
-      throw Exception('email_invalid'); // Changed to use translation key
-    }
-    
-    if (password.length < 6) {
-      throw Exception('password_min_length'); // Changed to use translation key
-    }
-    
-    // Check if this is employer login
-    if (email == _employerEmail && password == _employerPassword) {
-      final employerUser = User(
-        uid: 'employer_001',
+    try {
+      await _appwriteService.account.createEmailPasswordSession(
         email: email,
-        displayName: 'ນາຍຈ້າງ ABC',
-        role: 'employer',
-        phone: '020-12345678',
-        province: 'ນະຄອນຫຼວງວຽງຈັນ',
-        skills: ['ບໍລິຫານ HR', 'ສະໝັກງານ', 'ພັດທະນາທຸລະກິດ'],
-        bio: 'ບໍລິສັດຊັ້ນນໍາດ້ານເທັກໂນໂລຊີ ຊອກຫາຄົນເກັ່ງຮ່ວມງານ',
-        companyName: 'ບໍລິສັດ ABC ເທັກໂນໂລຊີ ຈໍາກັດ',
-        companySize: '51-200 ຄົນ',
-        industry: 'ເທັກໂນໂລຊີສານສົນເທດ',
-        companyDescription: 'ບໍລິສັດຊັ້ນນໍາດ້ານການພັດທະນາແອັບພລິເຄຊັນ ແລະ ລະບົບຂໍ້ມູນ',
-        website: 'https://abc-tech.la',
-        companyAddress: 'ບ້ານ ສີສັດຕະນາກ, ເມືອງ ສີສັດຕະນາກ, ນະຄອນຫຼວງວຽງຈັນ',
+        password: password,
       );
-      print('Debug AuthService - Creating employer user: ${employerUser.email}, Role: ${employerUser.role}');
-      return employerUser;
+      final appwriteUser = await _appwriteService.account.get();
+      return _mapAppwriteUserToUser(appwriteUser);
+    } on AppwriteException catch (e) {
+      // Map Appwrite exceptions to user-friendly messages or translation keys
+      if (e.code == 401) {
+        throw Exception('invalid_credentials');
+      } else if (e.code == 400) {
+        throw Exception('email_password_required');
+      }
+      throw Exception(e.message ?? 'login_failed');
+    } catch (e) {
+      throw Exception('login_failed');
     }
-    
-    // For demo purposes, accept any valid email/password format as job seeker
-    // In real app, this would validate against backend
-    final mockProfile = await MockApi.loadProfile();
-    return User(
-      uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      email: email,
-      displayName: mockProfile['displayName'] ?? 'ผู้ใช้งาน',
-      role: 'seeker',
-      phone: mockProfile['phone'],
-      province: mockProfile['province'],
-      skills: List<String>.from(mockProfile['skills'] ?? []),
-      bio: mockProfile['bio'],
-      resumeUrl: mockProfile['resumeUrl'],
-    );
   }
 
   Future<User?> register({
@@ -69,55 +38,171 @@ class AuthService {
     required String password,
     required String displayName,
     required String role,
+    // Additional fields for user profile
+    String? phone,
+    String? province,
+    List<String> skills = const [],
+    String? bio,
+    String? resumeUrl,
+    String? avatarUrl,
+    // Employer-specific fields
+    String? companyName,
+    String? companySize,
+    String? industry,
+    String? companyDescription,
+    String? website,
+    String? companyAddress,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    // Mock validation
-    if (email.isEmpty || password.isEmpty || displayName.isEmpty) {
-      throw Exception('name_required'); // Changed to use translation key
+    try {
+      // Create user account
+      final userId = ID.unique();
+      await _appwriteService.account.create(
+        userId: userId,
+        email: email,
+        password: password,
+        name: displayName,
+      );
+
+      // Log in the user immediately after registration
+      await _appwriteService.account.createEmailPasswordSession(
+        email: email,
+        password: password,
+      );
+
+      // Update user preferences with role
+      await _appwriteService.account.updatePrefs(
+        prefs: {'role': role},
+      );
+
+      // Create user profile document in the database
+      final profileData = {
+        'userId': userId,
+        'phone': phone ?? '',
+        'province': province ?? '',
+        'skills': skills,
+        'bio': bio ?? '',
+        'resumeUrl': resumeUrl ?? '',
+        'avatarUrl': avatarUrl ?? '',
+        // Employer-specific fields
+        'companyName': companyName ?? '',
+        'companySize': companySize ?? '',
+        'industry': industry ?? '',
+        'companyDescription': companyDescription ?? '',
+        'website': website ?? '',
+        'companyAddress': companyAddress ?? '',
+      };
+
+      await _appwriteService.databases.createDocument(
+        databaseId: _databaseId,
+        collectionId: _userProfilesCollectionId,
+        documentId: userId, // Use userId as documentId for easy linking
+        data: profileData,
+      );
+
+      final appwriteUser = await _appwriteService.account.get();
+      return _mapAppwriteUserToUser(appwriteUser);
+    } on AppwriteException catch (e) {
+      if (e.code == 409) {
+        throw Exception('email_already_registered');
+      } else if (e.code == 400) {
+        // ตรวจสอบข้อความข้อผิดพลาดเพิ่มเติม
+        if (e.message?.contains('password') == true) {
+          throw Exception('password_requirements_not_met');
+        } else if (e.message?.contains('email') == true) {
+          throw Exception('email_invalid');
+        } else {
+          throw Exception('invalid_registration_data');
+        }
+      }
+      throw Exception(e.message ?? 'registration_failed');
+    } catch (e) {
+      throw Exception('registration_failed');
     }
-    
-    if (!email.contains('@')) {
-      throw Exception('email_invalid'); // Changed to use translation key
-    }
-    
-    if (password.length < 6) {
-      throw Exception('password_min_length'); // Changed to use translation key
-    }
-    
-    if (displayName.length < 2) {
-      throw Exception('name_min_length'); // Changed to use translation key
-    }
-    
-    // Create new user
-    return User(
-      uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      email: email,
-      displayName: displayName,
-      role: role,
-      skills: role == 'seeker' ? ['Flutter', 'Mobile Development'] : ['Management', 'HR'],
-    );
   }
 
   Future<void> logout() async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      await _appwriteService.account.deleteSession(sessionId: 'current');
+    } on AppwriteException catch (e) {
+      throw Exception(e.message ?? 'logout_failed');
+    } catch (e) {
+      throw Exception('logout_failed');
+    }
   }
 
   Future<User?> getCurrentUser() async {
-    // In real app, this would check stored tokens/session
-    return null;
+    try {
+      final appwriteUser = await _appwriteService.account.get();
+
+      // Get user profile from database
+      try {
+        final profileDocument = await _appwriteService.databases.getDocument(
+          databaseId: _databaseId,
+          collectionId: _userProfilesCollectionId,
+          documentId: appwriteUser.$id,
+        );
+
+        return _mapAppwriteUserToUser(appwriteUser, profileDocument);
+      } catch (e) {
+        // If profile doesn't exist, return user with default values
+        return _mapAppwriteUserToUser(appwriteUser);
+      }
+    } on AppwriteException catch (e) {
+      if (e.code == 401) {
+        // User not logged in or session expired
+        // Check if the error is related to missing scopes
+        if (e.type == 'general_unauthorized_scope') {
+          // This might indicate that the session is not properly established
+          // or the user is not authenticated
+          return null;
+        }
+        return null;
+      }
+      throw Exception(e.message ?? 'failed_to_get_current_user');
+    } catch (e) {
+      throw Exception('failed_to_get_current_user');
+    }
+  }
+
+  User _mapAppwriteUserToUser(models.User appwriteUser,
+      [models.Document? profileDocument]) {
+    // Extract role from preferences, default to 'seeker' if not found
+    final role = appwriteUser.prefs.data.containsKey('role')
+        ? appwriteUser.prefs.data['role'] as String
+        : 'seeker';
+
+    return User(
+      uid: appwriteUser.$id,
+      email: appwriteUser.email,
+      displayName: appwriteUser.name,
+      role: role,
+      // Map profile data if available
+      phone: profileDocument?.data['phone'] as String?,
+      province: profileDocument?.data['province'] as String?,
+      skills: List<String>.from(profileDocument?.data['skills'] as List? ?? []),
+      bio: profileDocument?.data['bio'] as String?,
+      resumeUrl: profileDocument?.data['resumeUrl'] as String?,
+      avatarUrl: profileDocument?.data['avatarUrl'] as String?,
+      // Employer-specific fields
+      companyName: profileDocument?.data['companyName'] as String?,
+      companySize: profileDocument?.data['companySize'] as String?,
+      industry: profileDocument?.data['industry'] as String?,
+      companyDescription:
+          profileDocument?.data['companyDescription'] as String?,
+      website: profileDocument?.data['website'] as String?,
+      companyAddress: profileDocument?.data['companyAddress'] as String?,
+    );
   }
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
-  
+
   AuthNotifier(this._authService) : super(const AuthState());
 
   Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final user = await _authService.login(email, password);
       state = state.copyWith(
@@ -140,7 +225,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String role,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final user = await _authService.register(
         email: email,
@@ -167,13 +252,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
+  Future<void> getCurrentUser() async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final user = await _authService.getCurrentUser();
+      state = state.copyWith(
+        user: user,
+        isLoading: false,
+        error: null,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
+
   void clearError() {
     state = state.copyWith(error: null);
   }
 }
 
+final appwriteServiceProvider = Provider<AppwriteService>((ref) {
+  return AppwriteService();
+});
+
 final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService();
+  final appwriteService = ref.watch(appwriteServiceProvider);
+  return AuthService(appwriteService);
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
