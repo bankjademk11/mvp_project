@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../services/mock_api.dart';
+import 'package:appwrite/models.dart' as models;
+import '../../services/job_service.dart';
 import '../../services/application_service.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../services/language_service.dart';
@@ -52,21 +53,18 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
     
     try {
       // Get job details for application
-      final jobs = await MockApi.loadJobs();
-      final job = jobs.cast<Map<String, dynamic>>().firstWhere(
-        (e) => e['id'] == widget.jobId,
-        orElse: () => {},
-      );
+      final jobService = ref.read(JobService.jobServiceProvider);
+      final job = await jobService.getJobById(widget.jobId);
       
-      if (job.isEmpty) {
+      if (job.$id.isEmpty) {
         throw Exception(AppLocalizations.translate('job_not_found_error', languageCode));
       }
       
       // Submit application
       await ref.read(applicationProvider.notifier).submitApplication(
         jobId: widget.jobId,
-        jobTitle: job['title'] ?? '',
-        companyName: job['companyName'] ?? '',
+        jobTitle: job.data['title'] ?? '',
+        companyName: job.data['companyName'] ?? '',
         coverLetter: AppLocalizations.translate('default_cover_letter', languageCode),
       );
       
@@ -101,6 +99,7 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final jobService = ref.watch(JobService.jobServiceProvider);
     final languageState = ref.watch(languageProvider);
     final languageCode = languageState.languageCode;
     
@@ -124,21 +123,24 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: FutureBuilder(
-        future: MockApi.loadJobs(),
+        future: jobService.getJobById(widget.jobId),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return Scaffold(
               body: Center(child: Text(AppLocalizations.translate('loading', languageCode))),
             );
           }
           
-          final jobs = (snapshot.data as List).cast<Map<String, dynamic>>();
-          final job = jobs.firstWhere(
-            (e) => e['id'] == widget.jobId,
-            orElse: () => {},
-          );
+          if (snapshot.hasError) {
+            return Scaffold(
+              appBar: AppBar(title: Text(notFoundTitle)),
+              body: Center(
+                child: Text('${AppLocalizations.translate('error', languageCode)}: ${snapshot.error}'),
+              ),
+            );
+          }
           
-          if (job.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.$id.isEmpty) {
             return Scaffold(
               appBar: AppBar(title: Text(notFoundTitle)),
               body: Center(
@@ -147,14 +149,15 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
             );
           }
 
-          final title = job['title'] ?? '';
-          final company = job['companyName'] ?? '';
-          final province = job['province'] ?? '';
-          final type = job['type'] ?? 'Full-time';
-          final tags = (job['tags'] as List?)?.cast<String>() ?? [];
-          final description = job['description'] ?? '';
-          final salaryText = _formatSalary(job['salaryMin'], job['salaryMax'], languageCode);
-          final dateText = _formatDate(job['createdAt'], languageCode);
+          final job = snapshot.data!;
+          final title = job.data['title'] ?? '';
+          final company = job.data['companyName'] ?? '';
+          final province = job.data['province'] ?? '';
+          final type = job.data['type'] ?? 'Full-time';
+          final tags = List<String>.from(job.data['tags'] ?? []);
+          final description = job.data['description'] ?? '';
+          final salaryText = _formatSalary(job.data['salaryMin'], job.data['salaryMax'], languageCode);
+          final dateText = _formatDate(job.data['createdAt'], languageCode);
 
           return CustomScrollView(
             slivers: [

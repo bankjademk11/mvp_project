@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../services/mock_api.dart';
+import '../../services/job_service.dart';
 import '../../common/widgets/search_bar.dart';
 import '../../common/widgets/job_card.dart';
 import '../../common/widgets/notification_badge.dart';
 import '../../services/language_service.dart';
-
-final jobsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final items = await MockApi.loadJobs();
-  return items.cast<Map<String, dynamic>>();
-});
 
 class JobListPage extends ConsumerStatefulWidget {
   const JobListPage({super.key});
@@ -26,7 +20,7 @@ class _JobListPageState extends ConsumerState<JobListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final jobsAsync = ref.watch(jobsProvider);
+    final jobService = ref.watch(JobService.jobServiceProvider);
     final languageState = ref.watch(languageProvider);
     final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
     
@@ -56,29 +50,44 @@ class _JobListPageState extends ConsumerState<JobListPage> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: jobsAsync.when(
-                data: (jobs) {
-                  final filtered = jobs.where((j) {
-                    if (_keyword.isEmpty) return true;
-                    final hay = (j['title'].toString() + ' ' + j['companyName'].toString() + ' ' + j['province'].toString()).toLowerCase();
-                    return hay.contains(_keyword);
-                  }).toList();
-                  if (filtered.isEmpty) {
+              child: FutureBuilder<List>(
+                future: _keyword.isEmpty ? jobService.getJobs() : jobService.searchJobs(_keyword),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+                  
+                  final jobs = snapshot.data ?? [];
+                  
+                  if (jobs.isEmpty) {
                     return Center(child: Text(t('no_jobs_found')));
                   }
+                  
                   return ListView.builder(
-                    itemCount: filtered.length,
+                    itemCount: jobs.length,
                     itemBuilder: (_, i) {
-                      final job = filtered[i];
+                      final job = jobs[i];
                       return JobCard(
-                        job: job,
-                        onTap: () => context.push('/jobs/${job['id']}'),
+                        job: {
+                          'id': job.$id,
+                          'title': job.data['title'] ?? '',
+                          'companyName': job.data['companyName'] ?? '',
+                          'province': job.data['province'] ?? '',
+                          'type': job.data['type'] ?? '',
+                          'tags': List<String>.from(job.data['tags'] ?? []),
+                          'salaryMin': job.data['salaryMin'],
+                          'salaryMax': job.data['salaryMax'],
+                          'createdAt': job.data['createdAt'],
+                        },
+                        onTap: () => context.push('/jobs/${job.$id}'),
                       );
                     },
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, st) => Center(child: Text('Error: $e')),
               ),
             ),
           ],

@@ -1,114 +1,134 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:appwrite/appwrite.dart' as appwrite;
+import 'package:appwrite/models.dart' as models;
 import '../models/application.dart';
-import '../services/mock_api.dart';
+import 'appwrite_service.dart';
+import 'auth_service.dart';
 
 class ApplicationService {
-  // In-memory storage for demo purposes
-  static final List<JobApplication> _applications = [];
+  final AppwriteService _appwriteService;
+  static const String _databaseId = '68bbb9e6003188d8686f';
+  static const String _applicationsCollectionId = 'applications';
 
-  Future<List<JobApplication>> getApplications() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Return mock applications if empty
-    if (_applications.isEmpty) {
-      _initializeMockApplications();
+  ApplicationService(this._appwriteService);
+
+  Future<List<JobApplication>> getApplications(String userId) async {
+    try {
+      // Simulate network delay
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final response = await _appwriteService.databases.listDocuments(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        queries: [
+          appwrite.Query.equal('userId', userId),
+        ],
+      );
+      
+      return response.documents
+          .map((doc) => JobApplication.fromJson(doc.data))
+          .toList();
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to fetch applications: ${e.message}');
     }
-    
-    return List.from(_applications);
   }
 
   Future<JobApplication> submitApplication({
+    required String userId,
     required String jobId,
     required String jobTitle,
     required String companyName,
     String? coverLetter,
     String? resumeUrl,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    final application = JobApplication(
-      id: 'app_${DateTime.now().millisecondsSinceEpoch}',
-      jobId: jobId,
-      jobTitle: jobTitle,
-      companyName: companyName,
-      status: ApplicationStatus.pending,
-      appliedAt: DateTime.now(),
-      coverLetter: coverLetter,
-      resumeUrl: resumeUrl,
-    );
-    
-    _applications.insert(0, application); // Add to beginning
-    return application;
+    try {
+      // Simulate network delay
+      await Future.delayed(const Duration(milliseconds: 1000));
+      
+      final applicationData = {
+        'userId': userId,
+        'jobId': jobId,
+        'jobTitle': jobTitle,
+        'companyName': companyName,
+        'status': 'pending',
+        'appliedAt': DateTime.now().toIso8601String(),
+        'coverLetter': coverLetter,
+        'resumeUrl': resumeUrl,
+      };
+      
+      final response = await _appwriteService.databases.createDocument(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        documentId: appwrite.ID.unique(),
+        data: applicationData,
+      );
+      
+      return JobApplication.fromJson(response.data);
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to submit application: ${e.message}');
+    }
   }
 
   Future<JobApplication> updateApplicationStatus(
     String applicationId,
     ApplicationStatus newStatus,
   ) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    
-    final index = _applications.indexWhere((app) => app.id == applicationId);
-    if (index != -1) {
-      final updatedApp = _applications[index].copyWith(status: newStatus);
-      _applications[index] = updatedApp;
-      return updatedApp;
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      final response = await _appwriteService.databases.updateDocument(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        documentId: applicationId,
+        data: {
+          'status': newStatus.value,
+        },
+      );
+      
+      return JobApplication.fromJson(response.data);
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to update application status: ${e.message}');
     }
-    
-    throw Exception('Application not found');
   }
 
   Future<void> deleteApplication(String applicationId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    _applications.removeWhere((app) => app.id == applicationId);
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _appwriteService.databases.deleteDocument(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        documentId: applicationId,
+      );
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to delete application: ${e.message}');
+    }
   }
-
-  void _initializeMockApplications() {
-    final now = DateTime.now();
-    _applications.addAll([
-      JobApplication(
-        id: 'app_001',
-        jobId: 'job_001',
-        jobTitle: 'Sales Executive',
-        companyName: 'ODG Mall Co., Ltd.',
-        status: ApplicationStatus.reviewing,
-        appliedAt: now.subtract(const Duration(days: 2)),
-        coverLetter: 'ຂ້ອຍສົນໃຈຕໍາແໜ່ງນີ້ຫຼາຍເຈົ້າ ມີປະສົບການດ້ານການຂາຍ 2 ປີ',
-      ),
-      JobApplication(
-        id: 'app_002',
-        jobId: 'job_002',
-        jobTitle: 'Flutter Developer (Junior)',
-        companyName: 'NX Creations',
-        status: ApplicationStatus.interview,
-        appliedAt: now.subtract(const Duration(days: 5)),
-        interviewDate: now.add(const Duration(days: 1)),
-        coverLetter: 'ຂ້ອຍເປັນນັກພັດທະນາ Flutter ມີປະສົບການສ້າງແອັບ MVP',
-      ),
-      JobApplication(
-        id: 'app_003',
-        jobId: 'job_003',
-        jobTitle: 'Warehouse Supervisor',
-        companyName: 'Odien Group',
-        status: ApplicationStatus.pending,
-        appliedAt: now.subtract(const Duration(days: 1)),
-        coverLetter: 'ມີປະສົບການການຈັດການຄັງສິນຄ້າ 3 ປີ',
-      ),
-    ]);
-  }
+  
+  // Provider for ApplicationService
+  static final applicationServiceProvider = Provider<ApplicationService>((ref) {
+    final appwriteService = ref.watch(appwriteServiceProvider);
+    return ApplicationService(appwriteService);
+  });
 }
 
 class ApplicationNotifier extends StateNotifier<AsyncValue<List<JobApplication>>> {
   final ApplicationService _service;
+  String? _userId;
   
-  ApplicationNotifier(this._service) : super(const AsyncValue.loading()) {
-    _loadApplications();
+  ApplicationNotifier(this._service) : super(const AsyncValue.loading());
+
+  void setUserId(String userId) {
+    _userId = userId;
+    if (_userId != null) {
+      _loadApplications();
+    }
   }
 
   Future<void> _loadApplications() async {
+    if (_userId == null) return;
+    
     try {
-      final applications = await _service.getApplications();
+      final applications = await _service.getApplications(_userId!);
       state = AsyncValue.data(applications);
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -122,14 +142,21 @@ class ApplicationNotifier extends StateNotifier<AsyncValue<List<JobApplication>>
     String? coverLetter,
     String? resumeUrl,
   }) async {
+    if (_userId == null) {
+      state = const AsyncValue.error('User not authenticated', StackTrace.empty);
+      return;
+    }
+    
     try {
-      await _service.submitApplication(
+      final application = await _service.submitApplication(
+        userId: _userId!,
         jobId: jobId,
         jobTitle: jobTitle,
         companyName: companyName,
         coverLetter: coverLetter,
         resumeUrl: resumeUrl,
       );
+      
       // Reload applications
       await _loadApplications();
     } catch (error, stackTrace) {
@@ -160,11 +187,7 @@ class ApplicationNotifier extends StateNotifier<AsyncValue<List<JobApplication>>
   }
 }
 
-final applicationServiceProvider = Provider<ApplicationService>((ref) {
-  return ApplicationService();
-});
-
 final applicationProvider = StateNotifierProvider<ApplicationNotifier, AsyncValue<List<JobApplication>>>((ref) {
-  final service = ref.watch(applicationServiceProvider);
+  final service = ref.watch(ApplicationService.applicationServiceProvider);
   return ApplicationNotifier(service);
 });

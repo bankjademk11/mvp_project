@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/application.dart';
 import '../../services/application_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/language_service.dart';
 
 class MyApplicationsPage extends ConsumerStatefulWidget {
@@ -26,6 +27,16 @@ class _MyApplicationsPageState extends ConsumerState<MyApplicationsPage>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Set the user ID for the application provider
+    final authState = ref.read(authProvider);
+    if (authState.user != null) {
+      ref.read(applicationProvider.notifier).setUserId(authState.user!.uid);
+    }
   }
 
   String _formatDate(DateTime date, String languageCode) {

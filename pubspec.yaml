@@ -22,6 +22,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: "^0.13.1" # Added this line
+
+flutter_launcher_icons: # Added this block
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/iconband.png"
+  min_sdk_android: 21 # set min_sdk_android to 21 or higher
 
 flutter:
   uses-material-design: true

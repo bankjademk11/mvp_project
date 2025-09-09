@@ -12,7 +12,7 @@ class AppwriteService {
 
   void _init() {
     client
-        .setEndpoint('https://fra.cloud.appwrite.io/v1') // Your Appwrite Endpoint
+        .setEndpoint('https://cloud.appwrite.io/v1') // Changed to general Appwrite endpoint
         .setProject('68bbb97a003baa58bb9c') // Your Project ID
         .setSelfSigned(status: false); // Set to false for production/cloud environments
 

@@ -115,6 +115,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: '/employer/company',
             builder: (_, __) => const EmployerCompanyPage(),
           ),
+          GoRoute(
+            path: '/employer/post-job',
+            builder: (_, __) => const PostJobPage(),
+          ),
+          GoRoute(
+            path: '/employer/job/:id',
+            builder: (c, s) => JobDetailPage(jobId: s.pathParameters['id']!),
+          ),
         ],
       ),
       GoRoute(

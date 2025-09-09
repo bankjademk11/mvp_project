@@ -19,7 +19,7 @@ class CompanyProfilePage extends ConsumerStatefulWidget {
   ConsumerState<CompanyProfilePage> createState() => _CompanyProfilePageState();
 }
 
-class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage> 
+class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -27,10 +27,12 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    
+
     // โหลดข้อมูลบริษัท
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(companyServiceProvider.notifier).loadCompanyById(widget.companyId);
+      ref
+          .read(companyServiceProvider.notifier)
+          .loadCompanyById(widget.companyId);
       ref.read(reviewServiceProvider.notifier).refresh();
     });
   }
@@ -45,7 +47,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
   Widget build(BuildContext context) {
     final companyState = ref.watch(companyServiceProvider);
     final languageState = ref.watch(languageProvider);
-    final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
+    final t =
+        (key) => AppLocalizations.translate(key, languageState.languageCode);
 
     if (companyState.isLoading) {
       return Scaffold(
@@ -71,7 +74,9 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () {
-                  ref.read(companyServiceProvider.notifier).loadCompanyById(widget.companyId);
+                  ref
+                      .read(companyServiceProvider.notifier)
+                      .loadCompanyById(widget.companyId);
                 },
                 child: Text(t('try_again')),
               ),
@@ -230,11 +235,14 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _buildStatCard('${company.employeeCount}+', t('employees_count')),
+                      _buildStatCard(
+                          '${company.employeeCount}+', t('employees_count')),
                       const SizedBox(width: 16),
-                      _buildStatCard('${company.foundedYear.year}', t('founded_year')),
+                      _buildStatCard(
+                          '${company.foundedYear.year}', t('founded_year')),
                       const SizedBox(width: 16),
-                      _buildStatCard('${company.industry.length}', t('job_categories')),
+                      _buildStatCard(
+                          '${company.industry.length}', t('job_categories')),
                     ],
                   ),
                 ],
@@ -275,7 +283,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
         } else if (rating >= starRating - 0.5) {
           return const Icon(Icons.star_half, color: Colors.amber, size: 16);
         } else {
-          return Icon(Icons.star_border, color: Colors.white.withOpacity(0.7), size: 16);
+          return Icon(Icons.star_border,
+              color: Colors.white.withOpacity(0.7), size: 16);
         }
       }),
     );
@@ -327,7 +336,6 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 24),
-          
           if (company.industry.isNotEmpty) ...[
             _buildSectionTitle(t('job_categories')),
             const SizedBox(height: 12),
@@ -337,13 +345,13 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
               children: company.industry.map((industry) {
                 return Chip(
                   label: Text(industry),
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 );
               }).toList(),
             ),
             const SizedBox(height: 24),
           ],
-
           if (company.benefits.isNotEmpty) ...[
             _buildSectionTitle(t('company_benefits')),
             const SizedBox(height: 12),
@@ -370,7 +378,6 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             }).toList(),
             const SizedBox(height: 24),
           ],
-
           if (company.culture != null) ...[
             _buildSectionTitle(t('company_culture')),
             const SizedBox(height: 12),
@@ -380,7 +387,6 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             ),
             const SizedBox(height: 24),
           ],
-
           _buildSectionTitle('ข้อมูลติดต่อ'),
           const SizedBox(height: 12),
           if (company.address.isNotEmpty)
@@ -414,7 +420,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                   Icon(
                     Icons.work_outline,
                     size: 64,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                    color:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.3),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -425,8 +432,11 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                   Text(
                     'กลับมาดูใหม่ในภายหลัง',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                    ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.6),
+                        ),
                   ),
                 ],
               ),
@@ -439,7 +449,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
 
   Widget _buildReviewsTab(Company company, Function t) {
     final reviewState = ref.watch(reviewServiceProvider);
-    final companyReviews = reviewState.reviews.where((r) => r.companyId == company.id).toList();
+    final companyReviews =
+        reviewState.reviews.where((r) => r.companyId == company.id).toList();
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -463,8 +474,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             ],
           ),
           const SizedBox(height: 20),
-          
-          if (companyReviews.isEmpty) 
+          if (companyReviews.isEmpty)
             Expanded(
               child: Center(
                 child: Column(
@@ -473,7 +483,10 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                     Icon(
                       Icons.rate_review_outlined,
                       size: 64,
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.3),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -484,8 +497,11 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                     Text(
                       'เป็นคนแรกที่รีวิวบริษัทนี้',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.6),
+                          ),
                     ),
                   ],
                 ),
@@ -527,8 +543,11 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             Text(
               'รูปภาพของบริษัทจะแสดงที่นี่',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.6),
+                  ),
             ),
           ],
         ),
@@ -540,8 +559,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
     return Text(
       title,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w600,
-      ),
+            fontWeight: FontWeight.w600,
+          ),
     );
   }
 
@@ -563,8 +582,11 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
+                      ),
                 ),
                 Text(
                   value,
@@ -589,7 +611,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   child: Text(
                     review.userName.isNotEmpty ? review.userName[0] : 'U',
                     style: TextStyle(
@@ -607,9 +630,12 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                         children: [
                           Text(
                             review.userName,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                           if (review.isVerified) ...[
                             const SizedBox(width: 8),
@@ -624,8 +650,11 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                       Text(
                         review.position,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.6),
+                            ),
                       ),
                     ],
                   ),
@@ -637,8 +666,8 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             Text(
               review.title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -652,12 +681,17 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                 Text(
                   '${review.helpfulCount} คนพบว่ามีประโยชน์',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
+                      ),
                 ),
                 TextButton.icon(
                   onPressed: () {
-                    ref.read(reviewServiceProvider.notifier).markReviewHelpful(review.id);
+                    ref
+                        .read(reviewServiceProvider.notifier)
+                        .markReviewHelpful(review.id);
                   },
                   icon: const Icon(Icons.thumb_up_outlined, size: 16),
                   label: const Text('มีประโยชน์'),
@@ -699,7 +733,8 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: _tabBar,

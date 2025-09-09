@@ -14,6 +14,15 @@ class AuthService {
 
   Future<User?> login(String email, String password) async {
     try {
+      // Check if there's an active session and log out if needed
+      try {
+        await _appwriteService.account.get();
+        // If we get here, there's an active session, so log out first
+        await _appwriteService.account.deleteSession(sessionId: 'current');
+      } catch (e) {
+        // If there's no active session, this is expected, so we continue
+      }
+
       await _appwriteService.account.createEmailPasswordSession(
         email: email,
         password: password,
@@ -54,6 +63,15 @@ class AuthService {
     String? companyAddress,
   }) async {
     try {
+      // Check if there's an active session and log out if needed
+      try {
+        await _appwriteService.account.get();
+        // If we get here, there's an active session, so log out first
+        await _appwriteService.account.deleteSession(sessionId: 'current');
+      } catch (e) {
+        // If there's no active session, this is expected, so we continue
+      }
+
       // Create user account
       final userId = ID.unique();
       await _appwriteService.account.create(
