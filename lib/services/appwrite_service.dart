@@ -1,4 +1,5 @@
 import 'package:appwrite/appwrite.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AppwriteService {
   Client client = Client();
@@ -22,5 +23,6 @@ class AppwriteService {
   }
 }
 
-// You can create a Riverpod provider for this service later
-// final appwriteServiceProvider = Provider((ref) => AppwriteService());
+final appwriteServiceProvider = Provider<AppwriteService>((ref) {
+  return AppwriteService();
+});

@@ -1,0 +1,8 @@
+name: appwrite_debug
+description: A simple Dart script to debug Appwrite integration
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  appwrite: ^18.0.0

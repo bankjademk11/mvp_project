@@ -16,40 +16,99 @@ import 'features/employer/post_job_page.dart';
 import 'features/employer/employer_dashboard_page.dart';
 import 'features/employer/employer_jobs_page.dart';
 import 'features/employer/employer_applications_page.dart';
-import 'features/employer/employer_company_page.dart';
 import 'features/main/main_layout.dart';
 import 'features/bookmarks/bookmarks_page.dart';
 import 'features/notifications/notifications_page.dart';
 import 'features/company/company_profile_page.dart';
+import 'features/employer/setup_company_page.dart';
 import 'services/auth_service.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
   
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     redirect: (context, state) {
       final isAuthenticated = authState.isAuthenticated;
       final user = authState.user;
+      final isLoading = authState.isLoading;
       final isAuthRoute = state.uri.path == '/splash' || 
                          state.uri.path == '/onboarding' || 
                          state.uri.path == '/login' || 
                          state.uri.path == '/register';
+      final isSetupCompanyRoute = state.uri.path == '/employer/setup-company';
+      
+      print('Debug GoRouter - Path: ${state.uri.path}, Authenticated: $isAuthenticated, Role: ${user?.role}, Loading: $isLoading');
+      
+      // If still loading user data, don't redirect yet
+      if (isLoading) {
+        print('Debug GoRouter - Still loading user data, no redirect needed');
+        return null;
+      }
       
       // If not authenticated and trying to access protected routes
       if (!isAuthenticated && !isAuthRoute) {
+        print('Debug GoRouter - Not authenticated, redirecting to login');
         return '/login';
       }
       
       // If authenticated and on auth routes, redirect based on role
       if (isAuthenticated && isAuthRoute) {
         if (user?.role == 'employer') {
-          return '/employer/dashboard';
+          // Check if user data is fully loaded (not just basic auth info)
+          // A user with company info should have at least companyName and companyDescription
+          final hasCompanyInfo = user?.companyName?.isNotEmpty == true && 
+                                user?.companyDescription?.isNotEmpty == true;
+          
+          print('Debug GoRouter - Employer hasCompanyInfo: $hasCompanyInfo, companyName: ${user?.companyName}, companyDescription: ${user?.companyDescription}');
+          
+          // If user doesn't have company info and not on setup page, redirect to setup
+          if (!hasCompanyInfo && !isSetupCompanyRoute) {
+            print('Debug GoRouter - Employer missing company info, redirecting to setup');
+            return '/employer/setup-company';
+          } 
+          // If user has company info and is on setup page, redirect to dashboard
+          else if (hasCompanyInfo && isSetupCompanyRoute) {
+            print('Debug GoRouter - Employer already has company info, redirecting to dashboard');
+            return '/employer/dashboard';
+          }
+          // If user has company info and not on setup page, go to dashboard
+          else if (hasCompanyInfo) {
+            print('Debug GoRouter - Employer has company info, redirecting to dashboard');
+            return '/employer/dashboard';
+          }
+          // If user doesn't have company info and is on setup page, stay on setup page
+          else {
+            print('Debug GoRouter - Employer on setup page, no redirect needed');
+            return null;
+          }
         } else {
+          print('Debug GoRouter - Authenticated seeker, redirecting to jobs');
           return '/jobs';
         }
       }
       
+      // Special handling for employer routes
+      if (isAuthenticated && user?.role != 'employer' && 
+          (state.uri.path.startsWith('/employer/') || state.uri.path == '/employer')) {
+        print('Debug GoRouter - Non-employer trying to access employer routes, redirecting to jobs');
+        return '/jobs'; // Redirect non-employers from employer routes
+      }
+      
+      // Check if employer has company info when accessing employer routes
+      if (isAuthenticated && user?.role == 'employer' && 
+          state.uri.path.startsWith('/employer/') && 
+          state.uri.path != '/employer/setup-company') {
+        final hasCompanyInfo = user?.companyName?.isNotEmpty == true && 
+                              user?.companyDescription?.isNotEmpty == true;
+        
+        if (!hasCompanyInfo) {
+          print('Debug GoRouter - Employer missing company info, redirecting to setup');
+          return '/employer/setup-company';
+        }
+      }
+      
+      print('Debug GoRouter - No redirect needed');
       return null; // No redirect needed
     },
     routes: [
@@ -112,16 +171,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/employer/company',
-            builder: (_, __) => const EmployerCompanyPage(),
-          ),
-          GoRoute(
             path: '/employer/post-job',
             builder: (_, __) => const PostJobPage(),
           ),
           GoRoute(
             path: '/employer/job/:id',
             builder: (c, s) => JobDetailPage(jobId: s.pathParameters['id']!),
+          ),
+          // New route for setting up company information
+          GoRoute(
+            path: '/employer/setup-company',
+            builder: (_, __) => const SetupCompanyPage(),
           ),
         ],
       ),

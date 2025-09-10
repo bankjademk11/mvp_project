@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../services/auth_service.dart';
 import '../../services/language_service.dart';
+import '../../models/user.dart'; // Add this import for AuthState
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -18,6 +19,8 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
+  bool _isRateLimited = false;
+  DateTime? _rateLimitEndTime;
 
   late final AnimationController _waveController;
   late final AnimationController _rotationController;
@@ -46,6 +49,11 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
   }
 
   void _handleLogin() async {
+    if (_isRateLimited) {
+      _showRateLimitMessage();
+      return;
+    }
+    
     if (!_formKey.currentState!.validate()) return;
     
     ref.read(authProvider.notifier).clearError();
@@ -55,23 +63,58 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
     );
   }
 
+  void _showRateLimitMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('ระบบถูกใช้งานมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final languageState = ref.watch(languageProvider);
     final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
     
-    ref.listen(authProvider, (previous, next) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.isAuthenticated) {
-        context.go('/jobs');
+        // Redirect based on user role
+        if (next.user?.role == 'employer') {
+          context.go('/employer/dashboard');
+        } else {
+          context.go('/jobs');
+        }
       } else if (next.error != null && next.error!.isNotEmpty) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t(next.error!)),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Check if it's a rate limit error
+        if (next.error!.contains('rate_limit_exceeded')) {
+          setState(() {
+            _isRateLimited = true;
+            // Set rate limit end time to 1 minute from now
+            _rateLimitEndTime = DateTime.now().add(const Duration(minutes: 1));
+            
+            // Reset rate limit after 1 minute
+            Future.delayed(const Duration(minutes: 1), () {
+              if (mounted) {
+                setState(() {
+                  _isRateLimited = false;
+                  _rateLimitEndTime = null;
+                });
+              }
+            });
+          });
+          
+          _showRateLimitMessage();
+        } else {
+          // Show other error messages
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(t(next.error!)),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     });
     
@@ -149,7 +192,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
                     ),
                     const SizedBox(height: 40),
 
-                    if (authState.error != null) ...[
+                    if (authState.error != null && !authState.error!.contains('rate_limit_exceeded')) ...[
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -160,6 +203,22 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
                           t(authState.error!),
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (_isRateLimited) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'ระบบถูกใช้งานมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -205,7 +264,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
                     const SizedBox(height: 24),
                     PrimaryButton(
                       text: authState.isLoading ? t('loading') : t('login'),
-                      onPressed: authState.isLoading ? null : _handleLogin,
+                      onPressed: authState.isLoading || _isRateLimited ? null : _handleLogin,
                       loading: authState.isLoading,
                     ),
                     const SizedBox(height: 32),

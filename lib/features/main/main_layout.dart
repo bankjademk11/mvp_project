@@ -15,6 +15,11 @@ class MainLayout extends ConsumerStatefulWidget {
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
   int _selectedIndex = 0;
+  String? _lastUserEmail;
+  String? _lastUserRole;
+  int _lastSelectedIndex = -1; // Cache the last selected index
+  int _navigationCount = 0; // Track navigation attempts
+  DateTime? _lastNavigationTime; // Track last navigation time
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +31,31 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     // ตรวจสอบว่าเป็นนายจ้างหรือไม่
     final isEmployer = user?.role == 'employer';
     
-    // Debug: ตรวจสอบข้อมูลผู้ใช้
-    print('Debug MainLayout - User: ${user?.email}, Role: ${user?.role}, IsEmployer: $isEmployer');
+    // Debug: ตรวจสอบข้อมูลผู้ใช้ (แต่ไม่แสดงบ่อยเกินไป)
+    if (user?.email != _lastUserEmail || user?.role != _lastUserRole) {
+      _lastUserEmail = user?.email;
+      _lastUserRole = user?.role;
+      print('Debug MainLayout - User: ${user?.email}, Role: ${user?.role}, IsEmployer: $isEmployer');
+    }
+    
+    // Prevent excessive navigation
+    final now = DateTime.now();
+    if (_lastNavigationTime != null) {
+      final timeSinceLastNav = now.difference(_lastNavigationTime!);
+      if (timeSinceLastNav < const Duration(seconds: 1)) {
+        _navigationCount++;
+        if (_navigationCount > 5) {
+          print('Debug MainLayout - Too many navigation attempts, pausing');
+          // Reset counter after 5 seconds
+          Future.delayed(const Duration(seconds: 5), () {
+            _navigationCount = 0;
+          });
+        }
+      } else {
+        _navigationCount = 0; // Reset counter if enough time has passed
+      }
+    }
+    _lastNavigationTime = now;
     
     // เมนูสำหรับนายจ้าง
     final List<NavigationDestination> _employerDestinations = [
@@ -116,32 +144,43 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       }
     }
 
-    // Update selected index based on current route
+    // Update selected index based on current route (only when needed)
     final location = GoRouterState.of(context).uri.path;
+    int newSelectedIndex = _selectedIndex;
     
     if (isEmployer) {
       if (location.startsWith('/employer/dashboard')) {
-        _selectedIndex = 0;
+        newSelectedIndex = 0;
       } else if (location.startsWith('/employer/jobs')) {
-        _selectedIndex = 1;
+        newSelectedIndex = 1;
       } else if (location.startsWith('/employer/applications')) {
-        _selectedIndex = 2;
+        newSelectedIndex = 2;
       } else if (location.startsWith('/chats')) {
-        _selectedIndex = 3;
+        newSelectedIndex = 3;
       } else if (location.startsWith('/profile')) {
-        _selectedIndex = 4;
+        newSelectedIndex = 4;
       }
     } else {
       if (location.startsWith('/jobs')) {
-        _selectedIndex = 0;
+        newSelectedIndex = 0;
       } else if (location.startsWith('/applications')) {
-        _selectedIndex = 1;
+        newSelectedIndex = 1;
       } else if (location.startsWith('/bookmarks')) {
-        _selectedIndex = 2;
+        newSelectedIndex = 2;
       } else if (location.startsWith('/chats')) {
-        _selectedIndex = 3;
+        newSelectedIndex = 3;
       } else if (location.startsWith('/profile')) {
-        _selectedIndex = 4;
+        newSelectedIndex = 4;
+      }
+    }
+    
+    // Only update state if index actually changed
+    if (newSelectedIndex != _lastSelectedIndex) {
+      _lastSelectedIndex = newSelectedIndex;
+      if (newSelectedIndex != _selectedIndex) {
+        setState(() {
+          _selectedIndex = newSelectedIndex;
+        });
       }
     }
 

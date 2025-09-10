@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart' as appwrite;
 import 'appwrite_service.dart';
 
 class FileUploadService {
   final AppwriteService _appwriteService;
-  static const String _storageId = '68bbb97a003baa58bb9c'; // This should be your storage bucket ID
+  static const String _profilePicturesBucketId = 'profile_pictures';
+  static const String _resumesBucketId = 'resumes';
+  static const String _companyLogosBucketId = 'company_logos'; // แยก bucket สำหรับ company logos
   
   FileUploadService(this._appwriteService);
   
   Future<String?> uploadProfilePicture(appwrite.InputFile file) async {
     try {
       final response = await _appwriteService.storage.createFile(
-        bucketId: _storageId,
+        bucketId: _profilePicturesBucketId,
         fileId: appwrite.ID.unique(),
         file: file,
       );
       
       // Return the file URL
-      return 'https://fra.cloud.appwrite.io/v1/storage/buckets/$_storageId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
+      return 'https://cloud.appwrite.io/v1/storage/buckets/$_profilePicturesBucketId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
     } on appwrite.AppwriteException catch (e) {
       throw Exception('Failed to upload profile picture: ${e.message}');
     }
@@ -26,22 +29,38 @@ class FileUploadService {
   Future<String?> uploadResume(appwrite.InputFile file) async {
     try {
       final response = await _appwriteService.storage.createFile(
-        bucketId: _storageId,
+        bucketId: _resumesBucketId,
         fileId: appwrite.ID.unique(),
         file: file,
       );
       
       // Return the file URL
-      return 'https://fra.cloud.appwrite.io/v1/storage/buckets/$_storageId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
+      return 'https://cloud.appwrite.io/v1/storage/buckets/$_resumesBucketId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
     } on appwrite.AppwriteException catch (e) {
       throw Exception('Failed to upload resume: ${e.message}');
     }
   }
 
-  Future<void> deleteFile(String fileId) async {
+  // เพิ่มฟังก์ชันสำหรับอัปโหลดโลโก้บริษัท
+  Future<String?> uploadCompanyLogo(appwrite.InputFile file) async {
+    try {
+      final response = await _appwriteService.storage.createFile(
+        bucketId: _companyLogosBucketId,
+        fileId: appwrite.ID.unique(),
+        file: file,
+      );
+      
+      // Return the file URL
+      return 'https://cloud.appwrite.io/v1/storage/buckets/$_companyLogosBucketId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to upload company logo: ${e.message}');
+    }
+  }
+
+  Future<void> deleteFile(String bucketId, String fileId) async {
     try {
       await _appwriteService.storage.deleteFile(
-        bucketId: _storageId,
+        bucketId: bucketId,
         fileId: fileId,
       );
     } on appwrite.AppwriteException catch (e) {
@@ -50,7 +69,7 @@ class FileUploadService {
   }
 }
 
-class FileUploadWidget extends StatefulWidget {
+class FileUploadWidget extends ConsumerStatefulWidget {
   final String title;
   final String? currentFileUrl;
   final IconData icon;
@@ -69,10 +88,10 @@ class FileUploadWidget extends StatefulWidget {
   });
 
   @override
-  State<FileUploadWidget> createState() => _FileUploadWidgetState();
+  ConsumerState<FileUploadWidget> createState() => _FileUploadWidgetState();
 }
 
-class _FileUploadWidgetState extends State<FileUploadWidget> {
+class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
   bool _isUploading = false;
   double _uploadProgress = 0.0;
 
@@ -89,7 +108,7 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
     
     try {
       // Get Appwrite service
-      final appwriteService = AppwriteService();
+      final appwriteService = ref.read(appwriteServiceProvider);
       final fileUploadService = FileUploadService(appwriteService);
       
       String? fileUrl;
@@ -131,9 +150,10 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
   Future<void> _handleDelete() async {
     if (widget.currentFileUrl == null) return;
     
-    // Extract file ID from URL (this is a simplified approach)
+    // Extract file ID and bucket ID from URL
     final uri = Uri.parse(widget.currentFileUrl!);
     final pathSegments = uri.pathSegments;
+    final bucketId = pathSegments[pathSegments.length - 3];
     final fileId = pathSegments[pathSegments.length - 2]; // Adjust based on actual URL structure
     
     final confirmed = await showDialog<bool>(
@@ -158,10 +178,10 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
     if (confirmed == true) {
       try {
         // Get Appwrite service
-        final appwriteService = AppwriteService();
+        final appwriteService = ref.read(appwriteServiceProvider);
         final fileUploadService = FileUploadService(appwriteService);
         
-        await fileUploadService.deleteFile(fileId);
+        await fileUploadService.deleteFile(bucketId, fileId); // ส่ง bucketId ด้วย
         widget.onFileUploaded(null);
         
         if (mounted) {

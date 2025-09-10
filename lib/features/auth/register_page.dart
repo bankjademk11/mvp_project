@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../services/auth_service.dart';
 import '../../services/language_service.dart';
+import '../../models/user.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -51,7 +52,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         (key) => AppLocalizations.translate(key, languageState.languageCode);
 
     // Listen to auth state changes
-    ref.listen(authProvider, (previous, next) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.isAuthenticated) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
