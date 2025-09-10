@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/language_service.dart';
 
 class EmployerApplicationsPage extends ConsumerStatefulWidget {
   final String? jobId;
-  
+
   const EmployerApplicationsPage({
     super.key,
     this.jobId,
   });
 
   @override
-  ConsumerState<EmployerApplicationsPage> createState() => _EmployerApplicationsPageState();
+  ConsumerState<EmployerApplicationsPage> createState() =>
+      _EmployerApplicationsPageState();
 }
 
 class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsPage>
@@ -33,61 +35,64 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
 
   @override
   Widget build(BuildContext context) {
+    final languageCode = ref.watch(languageProvider).languageCode;
+    final t = (key) => AppLocalizations.translate(key, languageCode);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.jobId != null ? 'ຜູ້ສະໝັກງານ' : 'ໃບສະໝັກທັ້ງໜົດ'),
+        title: Text(widget.jobId != null ? t('applicants') : t('all_applications')),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'ທั้งหมด'),
-            Tab(text: 'รอพิจารณา'),
-            Tab(text: 'ผ่านเข้ารอบ'),
-            Tab(text: 'ไม่ผ่าน'),
+          tabs: [
+            Tab(text: t('all')),
+            Tab(text: t('pending_review')),
+            Tab(text: t('shortlisted')),
+            Tab(text: t('rejected_applications')),
           ],
         ),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) => setState(() => _selectedFilter = value),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'all',
                 child: Row(
                   children: [
-                    Icon(Icons.filter_list_off),
-                    SizedBox(width: 8),
-                    Text('ทั้งหมด'),
+                    const Icon(Icons.filter_list_off),
+                    const SizedBox(width: 8),
+                    Text(t('all')),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'today',
                 child: Row(
                   children: [
-                    Icon(Icons.today),
-                    SizedBox(width: 8),
-                    Text('วันนี้'),
+                    const Icon(Icons.today),
+                    const SizedBox(width: 8),
+                    Text(t('today')),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'week',
                 child: Row(
                   children: [
-                    Icon(Icons.date_range),
-                    SizedBox(width: 8),
-                    Text('สัปดาห์นี้'),
+                    const Icon(Icons.date_range),
+                    const SizedBox(width: 8),
+                    Text(t('this_week')),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'month',
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_month),
-                    SizedBox(width: 8),
-                    Text('เดือนนี้'),
+                    const Icon(Icons.calendar_month),
+                    const SizedBox(width: 8),
+                    Text(t('this_month')),
                   ],
                 ),
               ),
@@ -108,8 +113,10 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   }
 
   Widget _buildApplicationList(BuildContext context, String status) {
-    final applications = _getMockApplications(status);
-    
+    final languageCode = ref.watch(languageProvider).languageCode;
+    final t = (key) => AppLocalizations.translate(key, languageCode);
+    final applications = _getMockApplications(status, t);
+
     if (applications.isEmpty) {
       return Center(
         child: Column(
@@ -122,17 +129,17 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
             ),
             const SizedBox(height: 16),
             Text(
-              'ບໍ່ມີໃບສະໝັກ',
+              t('no_applications'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
+                    color: Colors.grey.shade600,
+                  ),
             ),
             const SizedBox(height: 8),
             Text(
-              'ຍັງບໍ່ມີຜູ້ສະໝັກໃນສະຖານະບານນີ້',
+              t('no_applications_in_status'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade500,
-              ),
+                    color: Colors.grey.shade500,
+                  ),
             ),
           ],
         ),
@@ -148,17 +155,18 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         itemCount: applications.length,
         itemBuilder: (context, index) {
           final application = applications[index];
-          return _buildApplicationCard(context, application);
+          return _buildApplicationCard(context, application, t);
         },
       ),
     );
   }
 
-  Widget _buildApplicationCard(BuildContext context, Map<String, dynamic> application) {
+  Widget _buildApplicationCard(
+      BuildContext context, Map<String, dynamic> application, Function t) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: () => _showApplicationDetails(context, application),
+        onTap: () => _showApplicationDetails(context, application, t),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -169,7 +177,8 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: _getStatusColor(application['status']).withOpacity(0.1),
+                    backgroundColor:
+                        _getStatusColor(application['status']).withOpacity(0.1),
                     child: Text(
                       application['applicantName'].substring(0, 1),
                       style: TextStyle(
@@ -185,16 +194,19 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                       children: [
                         Text(
                           application['applicantName'],
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           application['position'],
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey.shade600,
-                          ),
+                                color: Colors.grey.shade600,
+                              ),
                         ),
                       ],
                     ),
@@ -209,7 +221,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      _getStatusText(application['status']),
+                      _getStatusText(application['status'], t),
                       style: TextStyle(
                         color: _getStatusColor(application['status']),
                         fontSize: 12,
@@ -220,22 +232,16 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 ],
               ),
               const SizedBox(height: 12),
-              
-              // ข้อมูลพื้นฐาน
               Row(
                 children: [
-                  Icon(Icons.email_outlined, 
-                       size: 16, 
-                       color: Colors.grey.shade600),
+                  Icon(Icons.email_outlined, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
                     application['email'],
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(width: 16),
-                  Icon(Icons.phone_outlined, 
-                       size: 16, 
-                       color: Colors.grey.shade600),
+                  Icon(Icons.phone_outlined, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
                     application['phone'],
@@ -244,117 +250,110 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 ],
               ),
               const SizedBox(height: 8),
-              
               Row(
                 children: [
-                  Icon(Icons.location_on_outlined, 
-                       size: 16, 
-                       color: Colors.grey.shade600),
+                  Icon(Icons.location_on_outlined,
+                      size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
                     application['location'],
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(width: 16),
-                  Icon(Icons.work_outline, 
-                       size: 16, 
-                       color: Colors.grey.shade600),
+                  Icon(Icons.work_outline, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
-                    '${application['experience']} ปี',
+                    '${application['experience']} ${t('years_experience')}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              
-              // ทักษะ
-              if (application['skills'] != null && application['skills'].isNotEmpty) ...[
+              if (application['skills'] != null &&
+                  application['skills'].isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
-                  children: application['skills'].take(3).map<Widget>((skill) =>
-                    Chip(
-                      label: Text(
-                        skill,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      backgroundColor: Colors.blue.withOpacity(0.1),
-                      side: BorderSide.none,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ).toList(),
+                  children: application['skills']
+                      .take(3)
+                      .map<Widget>(
+                        (skill) => Chip(
+                          label: Text(
+                            skill,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          side: BorderSide.none,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
                 ),
                 const SizedBox(height: 12),
               ],
-              
-              // การกระทำ
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'ສະໝັກເມື່ອ: ${application['appliedDate']}',
+                    '${t('applied_on')}: ${application['appliedDate']}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade500,
-                    ),
+                          color: Colors.grey.shade500,
+                        ),
                   ),
                   Row(
                     children: [
                       if (application['hasCV'] == true)
                         TextButton.icon(
-                          onPressed: () => _viewCV(context, application),
+                          onPressed: () => _viewCV(context, application, t),
                           icon: const Icon(Icons.description_outlined, size: 16),
-                          label: const Text('ดู CV'),
+                          label: Text(t('view_cv')),
                           style: TextButton.styleFrom(
                             visualDensity: VisualDensity.compact,
                           ),
                         ),
                       const SizedBox(width: 8),
                       PopupMenuButton<String>(
-                        onSelected: (value) => _handleApplicationAction(
-                          context, 
-                          value, 
-                          application,
-                        ),
+                        onSelected: (value) =>
+                            _handleApplicationAction(context, value, application, t),
                         itemBuilder: (context) => [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'approve',
                             child: Row(
                               children: [
-                                Icon(Icons.check_circle_outline, color: Colors.green),
-                                SizedBox(width: 8),
-                                Text('อนุมัติ'),
+                                const Icon(Icons.check_circle_outline, color: Colors.green),
+                                const SizedBox(width: 8),
+                                Text(t('approve')),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'reject',
                             child: Row(
                               children: [
-                                Icon(Icons.cancel_outlined, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('ไม่อนุมัติ'),
+                                const Icon(Icons.cancel_outlined, color: Colors.red),
+                                const SizedBox(width: 8),
+                                Text(t('reject')),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'interview',
                             child: Row(
                               children: [
-                                Icon(Icons.calendar_today_outlined),
-                                SizedBox(width: 8),
-                                Text('นัดสัมภาษณ์'),
+                                const Icon(Icons.calendar_today_outlined),
+                                const SizedBox(width: 8),
+                                Text(t('schedule_interview_action')),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'message',
                             child: Row(
                               children: [
-                                Icon(Icons.message_outlined),
-                                SizedBox(width: 8),
-                                Text('ส่งข้อความ'),
+                                const Icon(Icons.message_outlined),
+                                const SizedBox(width: 8),
+                                Text(t('send_message')),
                               ],
                             ),
                           ),
@@ -394,22 +393,23 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     }
   }
 
-  String _getStatusText(String status) {
+  String _getStatusText(String status, Function t) {
     switch (status) {
       case 'pending':
-        return 'รอพิจารณา';
+        return t('pending_review');
       case 'approved':
-        return 'ผ่านเข้ารอบ';
+        return t('shortlisted');
       case 'rejected':
-        return 'ไม่ผ่าน';
+        return t('rejected_applications');
       case 'interviewed':
-        return 'สัมภาษณ์แล้ว';
+        return t('interviewed');
       default:
-        return 'ไม่ระบุ';
+        return t('unspecified');
     }
   }
 
-  void _showApplicationDetails(BuildContext context, Map<String, dynamic> application) {
+  void _showApplicationDetails(
+      BuildContext context, Map<String, dynamic> application, Function t) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -433,56 +433,54 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 ),
               ),
               const SizedBox(height: 20),
-              
-              // หัวข้อ
               Text(
-                'ລາຍລະອຽດຜູ້ສະໝັກ',
+                t('applicant_details'),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 20),
-              
-              // รายละเอียดเต็ม
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildDetailItem('ชื่อ-นามสกุล', application['applicantName']),
-                      _buildDetailItem('อีเมล', application['email']),
-                      _buildDetailItem('เบอร์โทร', application['phone']),
-                      _buildDetailItem('ที่อยู่', application['location']),
-                      _buildDetailItem('ຕໍາແໜ່ງທີ່ສະໝັກ', application['position']),
-                      _buildDetailItem('ປະສົບການ', '${application['experience']} ປີ'),
-                      
+                      _buildDetailItem(t('applicant_name'), application['applicantName']),
+                      _buildDetailItem(t('email'), application['email']),
+                      _buildDetailItem(t('phone'), application['phone']),
+                      _buildDetailItem(t('location'), application['location']),
+                      _buildDetailItem(
+                          t('applied_for_position'), application['position']),
+                      _buildDetailItem(t('experience'),
+                          '${application['experience']} ${t('years_experience')}'),
                       const SizedBox(height: 16),
                       Text(
-                        'ทักษะ',
+                        t('skills'),
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: application['skills'].map<Widget>((skill) =>
-                          Chip(
-                            label: Text(skill),
-                            backgroundColor: Colors.blue.withOpacity(0.1),
-                          ),
-                        ).toList(),
+                        children: application['skills']
+                            .map<Widget>(
+                              (skill) => Chip(
+                                label: Text(skill),
+                                backgroundColor: Colors.blue.withOpacity(0.1),
+                              ),
+                            )
+                            .toList(),
                       ),
-                      
                       if (application['coverLetter'] != null) ...[
                         const SizedBox(height: 16),
                         Text(
-                          'ຈົດຫມາຍສະໝັກງານ',
+                          t('cover_letter'),
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                         const SizedBox(height: 8),
                         Text(application['coverLetter']),
@@ -522,12 +520,12 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     );
   }
 
-  void _viewCV(BuildContext context, Map<String, dynamic> application) {
+  void _viewCV(BuildContext context, Map<String, dynamic> application, Function t) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('เปิด CV ของ ${application['applicantName']}'),
+        content: Text('${t('open_cv_of')} ${application['applicantName']}'),
         action: SnackBarAction(
-          label: 'ดาวน์โหลด',
+          label: t('download'),
           onPressed: () {
             // TODO: Implement CV download
           },
@@ -537,38 +535,41 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   }
 
   void _handleApplicationAction(
-    BuildContext context, 
-    String action, 
+    BuildContext context,
+    String action,
     Map<String, dynamic> application,
+    Function t,
   ) {
     switch (action) {
       case 'approve':
         _showConfirmDialog(
-          context, 
-          'ອະນຸມັດໃບສະໝັກ',
-          'ທ່ານຕ້ອງການອະນຸມັດໃບສະໝັກຂອງ ${application['applicantName']} ຫຼືບໍ່?',
+          context,
+          t('approve_application_title'),
+          t('approve_application_confirm').replaceAll('{name}', application['applicantName']),
           () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('ອະນຸມັດໃບສະໝັກເລຍບຮ້ອຍແລ້ວ')),
+              SnackBar(content: Text(t('application_approved_success'))),
             );
           },
+          t,
         );
         break;
       case 'reject':
         _showConfirmDialog(
-          context, 
-          'ບໍ່ອະນຸມັດໃບສະໝັກ',
-          'ທ່ານຕ້ອງການບໍ່ອະນຸມັດໃບສະໝັກຂອງ ${application['applicantName']} ຫຼືບໍ່?',
+          context,
+          t('reject_application_title'),
+          t('reject_application_confirm').replaceAll('{name}', application['applicantName']),
           () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('ບໍ່ອະນຸມັດໃບສະໝັກເລຍບຮ້ອຍແລ້ວ')),
+              SnackBar(content: Text(t('application_rejected_success'))),
             );
           },
+          t,
         );
         break;
       case 'interview':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ຟີເຈີນັດສຳພາດກຳລັງພັດທະນາ')),
+          SnackBar(content: Text(t('interview_feature_dev'))),
         );
         break;
       case 'message':
@@ -582,6 +583,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     String title,
     String content,
     VoidCallback onConfirm,
+    Function t,
   ) {
     showDialog(
       context: context,
@@ -591,90 +593,99 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('ຍົກເລີກ'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               onConfirm();
             },
-            child: const Text('ຢືນຢັນ'),
+            child: Text(t('confirm')),
           ),
         ],
       ),
     );
   }
 
-  List<Map<String, dynamic>> _getMockApplications(String status) {
+  List<Map<String, dynamic>> _getMockApplications(String status, Function t) {
     final allApplications = [
       {
         'id': '1',
         'applicantId': 'user_001',
-        'applicantName': 'สมชาย ใจดี',
+        'applicantName': 'ສົມຊາຍ ໃຈດີ',
         'email': 'somchai@email.com',
-        'phone': '081-234-5678',
-        'location': 'กรุงเทพฯ',
-        'position': 'นักพัฒนา Flutter',
+        'phone': '020-123-4567',
+        'location': 'ນະຄອນຫຼວງວຽງຈັນ',
+        'position': 'ນັກພັດທະນາ Flutter',
         'experience': 3,
         'skills': ['Flutter', 'Dart', 'Firebase', 'REST API'],
         'status': 'pending',
-        'appliedDate': '2 ชั่วโมงที่แล้ว',
+        'appliedDate': '2 ຊົ່ວໂມງກ່ອນ',
         'hasCV': true,
-        'coverLetter': 'ผมสนใจตำแหน่งนี้มาก และมีประสบการณ์ในการพัฒนา Flutter มา 3 ปี...',
+        'coverLetter':
+            'ຂ້າພະເຈົ້າສົນໃຈຕຳແໜ່ງນີ້ຫຼາຍ ແລະ ມີປະສົບການໃນການພັດທະນາ Flutter 3 ປີ...',
       },
       {
         'id': '2',
         'applicantId': 'user_002',
-        'applicantName': 'สมหญิง รักงาน',
+        'applicantName': 'ສົມຍິງ ຮັກງານ',
         'email': 'somying@email.com',
-        'phone': '082-345-6789',
-        'location': 'นนทบุรี',
+        'phone': '020-234-5678',
+        'location': 'ສະຫວັນນະເຂດ',
         'position': 'UI/UX Designer',
         'experience': 2,
         'skills': ['Figma', 'Adobe XD', 'Sketch', 'Prototyping'],
         'status': 'approved',
-        'appliedDate': '5 ชั่วโมงที่แล้ว',
+        'appliedDate': '5 ຊົ່ວໂມງກ່ອນ',
         'hasCV': true,
       },
       {
         'id': '3',
         'applicantId': 'user_003',
-        'applicantName': 'วิชัย ขยัน',
+        'applicantName': 'ວິໄຊ ຂยัน',
         'email': 'wichai@email.com',
-        'phone': '083-456-7890',
-        'location': 'ปทุมธานี',
-        'position': 'นักพัฒนา Flutter',
+        'phone': '020-345-6789',
+        'location': 'ປາກເຊ',
+        'position': 'ນັກພັດທະນາ Flutter',
         'experience': 1,
         'skills': ['Flutter', 'Dart', 'Git'],
         'status': 'rejected',
-        'appliedDate': '1 วันที่แล้ว',
+        'appliedDate': '1 ມື້ກ່ອນ',
         'hasCV': true,
       },
       {
         'id': '4',
         'applicantId': 'user_004',
-        'applicantName': 'นารี สวยงาม',
+        'applicantName': 'ນາລີ ສວຍງາມ',
         'email': 'naree@email.com',
-        'phone': '084-567-8901',
-        'location': 'กรุงเทพฯ',
+        'phone': '020-456-7890',
+        'location': 'ຫຼວງພະບາງ',
         'position': 'Frontend Developer',
         'experience': 4,
         'skills': ['React', 'Vue.js', 'TypeScript', 'CSS'],
         'status': 'interviewed',
-        'appliedDate': '3 วันที่แล้ว',
+        'appliedDate': '3 ມື້ກ່ອນ',
         'hasCV': true,
       },
     ];
 
     switch (status) {
       case 'pending':
-        return allApplications.where((app) => app['status'] == 'pending').toList();
+        return allApplications
+            .where((app) => app['status'] == 'pending')
+            .toList();
       case 'approved':
-        return allApplications.where((app) => app['status'] == 'approved').toList();
+        return allApplications
+            .where((app) => app['status'] == 'approved')
+            .toList();
       case 'rejected':
-        return allApplications.where((app) => app['status'] == 'rejected').toList();
+        return allApplications
+            .where((app) => app['status'] == 'rejected')
+            .toList();
       case 'interviewed':
-        return allApplications.where((app) => app['status'] == 'interviewed').toList();
+        return allApplications
+            .where((app) => app['status'] == 'interviewed')
+            .toList();
       default:
         return allApplications;
     }

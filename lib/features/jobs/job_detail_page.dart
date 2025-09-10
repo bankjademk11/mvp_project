@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:appwrite/models.dart' as models;
 import '../../services/job_service.dart';
 import '../../services/application_service.dart';
+import '../../services/company_service.dart';
+import '../../models/company.dart';
+import '../../common/widgets/company_logo_widget.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../services/language_service.dart';
+import '../../services/auth_service.dart';
 
 class JobDetailPage extends ConsumerStatefulWidget {
   final String jobId;
@@ -52,7 +57,6 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
     });
     
     try {
-      // Get job details for application
       final jobService = ref.read(JobService.jobServiceProvider);
       final job = await jobService.getJobById(widget.jobId);
       
@@ -60,7 +64,6 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
         throw Exception(AppLocalizations.translate('job_not_found_error', languageCode));
       }
       
-      // Submit application
       await ref.read(applicationProvider.notifier).submitApplication(
         jobId: widget.jobId,
         jobTitle: job.data['title'] ?? '',
@@ -97,115 +100,179 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
     }
   }
 
+  Future<void> _confirmDelete(String languageCode) async {
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(AppLocalizations.translate('confirm_delete_job_title', languageCode)),
+          content: Text(AppLocalizations.translate('confirm_delete_job_message', languageCode)),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(AppLocalizations.translate('cancel', languageCode)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(AppLocalizations.translate('delete', languageCode)),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+
+    if (confirm) {
+      _deleteJob(languageCode);
+    }
+  }
+
+  Future<void> _deleteJob(String languageCode) async {
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      await ref.read(JobService.jobServiceProvider).deleteJob(widget.jobId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.translate('job_deleted_successfully', languageCode)),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppLocalizations.translate('error', languageCode)}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final jobService = ref.watch(JobService.jobServiceProvider);
     final languageState = ref.watch(languageProvider);
     final languageCode = languageState.languageCode;
-    
-    // Get translations
-    final jobDetailsTitle = AppLocalizations.translate('job_detail', languageCode);
-    final notFoundTitle = AppLocalizations.translate('job_not_found', languageCode);
-    final notFoundMessage = AppLocalizations.translate('job_not_found_message', languageCode);
-    final bookmarkSaved = AppLocalizations.translate('job_bookmarked', languageCode);
-    final bookmarkRemoved = AppLocalizations.translate('job_bookmark_removed', languageCode);
-    final shareJob = AppLocalizations.translate('share_job', languageCode);
-    final postedOn = AppLocalizations.translate('posted_on', languageCode);
-    final noDescription = AppLocalizations.translate('no_description', languageCode);
-    final requiredSkills = AppLocalizations.translate('requirements', languageCode);
-    final aboutCompany = AppLocalizations.translate('about_company', languageCode);
-    final companyDescription = AppLocalizations.translate('company_description', languageCode);
-    final startChat = AppLocalizations.translate('start_chat_with_hr', languageCode);
-    final chat = AppLocalizations.translate('chat', languageCode);
-    final apply = AppLocalizations.translate('apply', languageCode);
-    final applying = AppLocalizations.translate('applying', languageCode);
+    final t = (key) => AppLocalizations.translate(key, languageCode);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: FutureBuilder(
-        future: jobService.getJobById(widget.jobId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Scaffold(
-              body: Center(child: Text(AppLocalizations.translate('loading', languageCode))),
-            );
-          }
-          
-          if (snapshot.hasError) {
-            return Scaffold(
-              appBar: AppBar(title: Text(notFoundTitle)),
-              body: Center(
-                child: Text('${AppLocalizations.translate('error', languageCode)}: ${snapshot.error}'),
-              ),
-            );
-          }
-          
-          if (!snapshot.hasData || snapshot.data!.$id.isEmpty) {
-            return Scaffold(
-              appBar: AppBar(title: Text(notFoundTitle)),
-              body: Center(
-                child: Text(notFoundMessage),
-              ),
-            );
-          }
+    return FutureBuilder<models.Document>(
+      future: jobService.getJobById(widget.jobId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            body: Center(child: Text(t('loading'))),
+          );
+        }
+        
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: Text(t('job_not_found'))),
+            body: Center(
+              child: Text('${t('error')}: ${snapshot.error}'),
+            ),
+          );
+        }
+        
+        if (!snapshot.hasData || snapshot.data!.$id.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(title: Text(t('job_not_found'))),
+            body: Center(
+              child: Text(t('job_not_found_message')),
+            ),
+          );
+        }
 
-          final job = snapshot.data!;
-          final title = job.data['title'] ?? '';
-          final company = job.data['companyName'] ?? '';
-          final province = job.data['province'] ?? '';
-          final type = job.data['type'] ?? 'Full-time';
-          final tags = List<String>.from(job.data['tags'] ?? []);
-          final description = job.data['description'] ?? '';
-          final salaryText = _formatSalary(job.data['salaryMin'], job.data['salaryMax'], languageCode);
-          final dateText = _formatDate(job.data['createdAt'], languageCode);
+        final job = snapshot.data!;
+        final title = job.data['title'] ?? '';
+        final companyId = job.data['companyId'] ?? '';
+        final companyName = job.data['companyName'] ?? '';
+        final province = job.data['province'] ?? '';
+        final type = job.data['type'] ?? 'Full-time';
+        final tags = List<String>.from(job.data['tags'] ?? []);
+        final description = job.data['description'] ?? '';
+        final salaryText = _formatSalary(job.data['salaryMin'], job.data['salaryMax'], languageCode);
+        final dateText = _formatDate(job.data['createdAt'], languageCode);
 
-          return CustomScrollView(
+        final companyState = ref.watch(companyServiceProvider);
+        final Company? currentCompany = companyState.selectedCompany;
+
+        if (currentCompany == null || currentCompany.id != companyId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(companyServiceProvider.notifier).loadCompanyById(companyId);
+          });
+        }
+
+        final authState = ref.watch(authProvider);
+        final isJobPoster = authState.user?.role == 'employer' && authState.user?.uid == companyId;
+
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: CustomScrollView(
             slivers: [
-              // App Bar
               SliverAppBar(
                 elevation: 0,
                 backgroundColor: Colors.white,
                 foregroundColor: Theme.of(context).colorScheme.onSurface,
-                title: Text(jobDetailsTitle),
+                title: Text(t('job_detail')),
                 actions: [
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        isBookmarked = !isBookmarked;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isBookmarked ? bookmarkSaved : bookmarkRemoved,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: Icon(
-                      isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                      color: isBookmarked 
-                          ? Theme.of(context).colorScheme.primary 
-                          : null,
+                  if (isJobPoster) ...[
+                    IconButton(
+                      onPressed: () => context.push('/employer/applications?jobId=${widget.jobId}'),
+                      icon: const Icon(Icons.people_alt_outlined),
+                      tooltip: t('view_applicants'),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      // TODO: Share functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(shareJob)),
-                      );
-                    },
-                    icon: const Icon(Icons.share),
-                  ),
+                    IconButton(
+                      onPressed: isLoading ? null : () => _confirmDelete(languageCode),
+                      icon: const Icon(Icons.delete_forever),
+                      tooltip: t('delete_job'),
+                    ),
+                  ],
+                  if (!isJobPoster) ...[
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          isBookmarked = !isBookmarked;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isBookmarked ? t('job_bookmarked') : t('job_bookmark_removed'),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        color: isBookmarked ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(t('share_job'))),
+                        );
+                      },
+                      icon: const Icon(Icons.share),
+                    ),
+                  ],
                 ],
               ),
-              
-              // Content
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Job Header Card
                     Container(
                       margin: const EdgeInsets.all(16),
                       padding: const EdgeInsets.all(20),
@@ -223,22 +290,14 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Company logo and basic info
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 64,
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(
-                                  Icons.business,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  size: 32,
-                                ),
+                              CompanyLogoWidget(
+                                logoUrl: currentCompany?.logo,
+                                companyName: currentCompany?.name ?? companyName,
+                                size: 64,
+                                borderRadius: 16,
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -254,7 +313,7 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      company,
+                                      companyName,
                                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                         color: Theme.of(context).colorScheme.primary,
                                         fontWeight: FontWeight.w600,
@@ -283,8 +342,6 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          
-                          // Job details chips
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -302,7 +359,7 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                               if (dateText.isNotEmpty)
                                 _buildInfoChip(
                                   Icons.schedule,
-                                  '$postedOn $dateText',
+                                  '${t('posted_on')} $dateText',
                                   Colors.orange,
                                 ),
                             ],
@@ -310,25 +367,19 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                         ],
                       ),
                     ),
-                    
-                    // Job Description
                     _buildSection(
-                      title: jobDetailsTitle,
+                      title: t('job_detail'),
                       icon: Icons.description_outlined,
                       child: Text(
-                        description.isNotEmpty 
-                            ? description 
-                            : noDescription,
+                        description.isNotEmpty ? description : t('no_description'),
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           height: 1.6,
                         ),
                       ),
                     ),
-                    
-                    // Required Skills
                     if (tags.isNotEmpty)
                       _buildSection(
-                        title: requiredSkills,
+                        title: t('requirements'),
                         icon: Icons.psychology_outlined,
                         child: Wrap(
                           spacing: 8,
@@ -357,23 +408,21 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                           }).toList(),
                         ),
                       ),
-                    
-                    // Company Info
                     _buildSection(
-                      title: aboutCompany,
+                      title: t('about_company'),
                       icon: Icons.business_outlined,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            company,
+                            companyName,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            companyDescription,
+                            t('company_description'),
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               height: 1.5,
                             ),
@@ -396,64 +445,61 @@ class _JobDetailPageState extends ConsumerState<JobDetailPage> {
                         ],
                       ),
                     ),
-                    
-                    // Bottom spacing for floating buttons
                     const SizedBox(height: 100),
                   ],
                 ),
               ),
             ],
-          );
-        },
-      ),
-      
-      // Floating Bottom Actions
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    // TODO: Start chat functionality
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(startChat),
+          ),
+          bottomNavigationBar: isJobPoster
+              ? null
+              : Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: Text(chat),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    ],
+                  ),
+                  child: SafeArea(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(t('start_chat_with_hr')),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.chat_bubble_outline),
+                            label: Text(t('chat')),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: PrimaryButton(
+                            text: isLoading ? t('applying') : t('apply'),
+                            onPressed: isLoading ? null : () => _handleApply(languageCode),
+                            loading: isLoading,
+                            icon: isLoading ? null : Icons.send,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: PrimaryButton(
-                  text: isLoading ? applying : apply,
-                  onPressed: isLoading ? null : () => _handleApply(languageCode),
-                  loading: isLoading,
-                  icon: isLoading ? null : Icons.send,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 

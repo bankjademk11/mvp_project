@@ -84,7 +84,7 @@ class _EmployerDashboardPageState extends ConsumerState<EmployerDashboardPage> {
                     icon: Icons.business,
                     title: t('company_profile'),
                     subtitle: t('update_company_info'),
-                    onTap: () => context.push('/employer/company'),
+                    onTap: () => context.push('/company/${authState.user!.uid}'),
                   ),
                   _buildDashboardCard(
                     context,

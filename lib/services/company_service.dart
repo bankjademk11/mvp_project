@@ -1,14 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/company.dart';
+import '../services/auth_service.dart'; // Import auth service
 import 'mock_api.dart';
 
 // Provider สำหรับ Company Service
 final companyServiceProvider = StateNotifierProvider<CompanyService, CompanyState>((ref) {
-  return CompanyService();
+  return CompanyService(ref);
 });
 
 class CompanyService extends StateNotifier<CompanyState> {
-  CompanyService() : super(const CompanyState()) {
+  final Ref _ref;
+  CompanyService(this._ref) : super(const CompanyState()) {
     loadCompanies();
   }
 
@@ -104,21 +106,46 @@ class CompanyService extends StateNotifier<CompanyState> {
 
   // โหลดข้อมูลบริษัทตาม ID
   Future<void> loadCompanyById(String companyId) async {
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, error: null);
     
     try {
-      // TODO: เรียก API จริง
-      await Future.delayed(const Duration(milliseconds: 300));
+      // First, try to find in mock data
+      final existingCompany = state.companies.where((c) => c.id == companyId).firstOrNull;
+
+      if (existingCompany != null) {
+        state = state.copyWith(selectedCompany: existingCompany, isLoading: false);
+        return;
+      }
+
+      // If not in mock data, check if it's the current employer's own profile
+      final currentUser = _ref.read(authProvider).user;
+      if (currentUser != null && currentUser.role == 'employer' && currentUser.uid == companyId) {
+        // Create a Company object from the user's auth data
+        final employerCompany = Company(
+          id: currentUser.uid,
+          name: currentUser.companyName ?? 'N/A',
+          description: currentUser.companyDescription ?? 'No description available.',
+          logo: currentUser.companyLogoUrl,
+          website: currentUser.website,
+          province: currentUser.province ?? 'N/A',
+          address: currentUser.companyAddress ?? 'N/A',
+          phone: currentUser.phone,
+          email: currentUser.email,
+          industry: currentUser.industry != null ? [currentUser.industry!] : [],
+          employeeCount: int.tryParse(currentUser.companySize ?? '0') ?? 0,
+          foundedYear: DateTime.now(), // Placeholder
+          rating: 0.0, // Placeholder
+          reviewCount: 0, // Placeholder
+          benefits: [], // Placeholder
+          culture: '', // Placeholder
+        );
+        state = state.copyWith(selectedCompany: employerCompany, isLoading: false);
+        return;
+      }
       
-      final company = state.companies.firstWhere(
-        (c) => c.id == companyId,
-        orElse: () => throw Exception('Company not found'),
-      );
-      
-      state = state.copyWith(
-        selectedCompany: company,
-        isLoading: false,
-      );
+      // If not found anywhere, throw an error
+      throw Exception('Company not found');
+
     } catch (error) {
       state = state.copyWith(
         isLoading: false,

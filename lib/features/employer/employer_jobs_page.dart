@@ -147,6 +147,8 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
             );
           }
 
+          final authState = ref.watch(authProvider);
+
           return RefreshIndicator(
             onRefresh: _refreshJobs,
             child: ListView.builder(
@@ -165,6 +167,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
                     'salaryMin': job.data['salaryMin'],
                     'salaryMax': job.data['salaryMax'],
                     'createdAt': job.data['createdAt'],
+                    'companyLogoUrl': authState.user?.companyLogoUrl,
                   },
                   onTap: () {
                     // นำทางไปหน้ารายละเอียดงาน

@@ -28,7 +28,6 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
 
-    // โหลดข้อมูลบริษัท
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref
           .read(companyServiceProvider.notifier)
@@ -387,7 +386,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             ),
             const SizedBox(height: 24),
           ],
-          _buildSectionTitle('ข้อมูลติดต่อ'),
+          _buildSectionTitle(t('contact_info')),
           const SizedBox(height: 12),
           if (company.address.isNotEmpty)
             _buildContactItem(Icons.location_on, t('address'), company.address),
@@ -408,7 +407,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
       child: Column(
         children: [
           Text(
-            'งานจาก ${company.name}',
+            '${t('jobs_from_company')} ${company.name}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 20),
@@ -425,12 +424,12 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'ยังไม่มีงานจากบริษัทนี้',
+                    t('no_jobs_from_company'),
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'กลับมาดูใหม่ในภายหลัง',
+                    t('check_back_later'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context)
                               .colorScheme
@@ -490,12 +489,12 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'ยังไม่มีรีวิว',
+                      t('no_reviews_yet'),
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'เป็นคนแรกที่รีวิวบริษัทนี้',
+                      t('be_first_to_review'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Theme.of(context)
                                 .colorScheme
@@ -513,7 +512,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                 itemCount: companyReviews.length,
                 itemBuilder: (context, index) {
                   final review = companyReviews[index];
-                  return _buildReviewItem(review);
+                  return _buildReviewItem(review, t);
                 },
               ),
             ),
@@ -536,12 +535,12 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
             ),
             const SizedBox(height: 16),
             Text(
-              'ยังไม่มีรูปภาพ',
+              t('no_photos_yet'),
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              'รูปภาพของบริษัทจะแสดงที่นี่',
+              t('company_photos_here'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context)
                         .colorScheme
@@ -600,7 +599,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
     );
   }
 
-  Widget _buildReviewItem(CompanyReview review) {
+  Widget _buildReviewItem(CompanyReview review, Function t) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -679,7 +678,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${review.helpfulCount} คนพบว่ามีประโยชน์',
+                  '${review.helpfulCount} ${t('x_found_helpful')}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context)
                             .colorScheme
@@ -694,7 +693,7 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
                         .markReviewHelpful(review.id);
                   },
                   icon: const Icon(Icons.thumb_up_outlined, size: 16),
-                  label: const Text('มีประโยชน์'),
+                  label: Text(t('helpful')),
                 ),
               ],
             ),

@@ -21,6 +21,7 @@ import 'features/bookmarks/bookmarks_page.dart';
 import 'features/notifications/notifications_page.dart';
 import 'features/company/company_profile_page.dart';
 import 'features/employer/setup_company_page.dart';
+import 'features/employer/analytics_page.dart';
 import 'services/auth_service.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -177,6 +178,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/employer/job/:id',
             builder: (c, s) => JobDetailPage(jobId: s.pathParameters['id']!),
+          ),
+          // New route for analytics
+          GoRoute(
+            path: '/employer/analytics',
+            builder: (_, __) => const EmployerAnalyticsPage(),
           ),
           // New route for setting up company information
           GoRoute(

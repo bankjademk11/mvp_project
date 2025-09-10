@@ -15,25 +15,67 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
+  // State variables
+  String? _selectedProvince;
+  String? _selectedJobType;
+
   // Controllers
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _provinceController = TextEditingController();
-  final _typeController = TextEditingController();
   final _salaryMinController = TextEditingController();
   final _salaryMaxController = TextEditingController();
   final _tagsController = TextEditingController();
+
+  // Data for dropdowns (using translation keys)
+  final List<String> _jobTypeKeys = [
+    'job_type_full_time',
+    'job_type_part_time',
+    'job_type_contract',
+    'job_type_internship',
+    'job_type_temporary',
+  ];
+  final List<String> _provinceKeys = [
+    'province_attapue',
+    'province_bokeo',
+    'province_bolikhamxai',
+    'province_champasak',
+    'province_houaphanh',
+    'province_khammouane',
+    'province_luang_namtha',
+    'province_luang_prabang',
+    'province_oudomxay',
+    'province_phongsaly',
+    'province_salavan',
+    'province_savannakhet',
+    'province_sainyabuli',
+    'province_sekong',
+    'province_vientiane',
+    'province_xaisomboun',
+    'province_xiangkhouang',
+    'vientiane_capital',
+  ];
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _provinceController.dispose();
-    _typeController.dispose();
     _salaryMinController.dispose();
     _salaryMaxController.dispose();
     _tagsController.dispose();
     super.dispose();
+  }
+
+  void _clearForm() {
+    _formKey.currentState?.reset();
+    _titleController.clear();
+    _descriptionController.clear();
+    _salaryMinController.clear();
+    _salaryMaxController.clear();
+    _tagsController.clear();
+    setState(() {
+      _selectedProvince = null;
+      _selectedJobType = null;
+    });
   }
 
   Future<void> _submitJob() async {
@@ -46,15 +88,20 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
     try {
       final authState = ref.read(authProvider);
       final jobService = ref.read(JobService.jobServiceProvider);
+      final languageCode = ref.read(languageProvider).languageCode;
 
       await jobService.createJob(
         title: _titleController.text.trim(),
         companyName: authState.user?.companyName ?? authState.user?.displayName ?? '',
-        province: _provinceController.text.trim(),
-        type: _typeController.text.trim(),
+        province: _selectedProvince != null ? AppLocalizations.translate(_selectedProvince!, languageCode) : null,
+        type: _selectedJobType != null ? AppLocalizations.translate(_selectedJobType!, languageCode) : null,
         description: _descriptionController.text.trim(),
-        salaryMin: _salaryMinController.text.isEmpty ? null : int.tryParse(_salaryMinController.text),
-        salaryMax: _salaryMaxController.text.isEmpty ? null : int.tryParse(_salaryMaxController.text),
+        salaryMin: _salaryMinController.text.isEmpty
+            ? null
+            : int.tryParse(_salaryMinController.text),
+        salaryMax: _salaryMaxController.text.isEmpty
+            ? null
+            : int.tryParse(_salaryMaxController.text),
         tags: _tagsController.text.isEmpty
             ? []
             : _tagsController.text.split(',').map((tag) => tag.trim()).toList(),
@@ -66,7 +113,6 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
           _isLoading = false;
         });
 
-        // Show success message
         final languageState = ref.read(languageProvider);
         final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -76,15 +122,7 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
           ),
         );
 
-        // Clear form
-        _formKey.currentState!.reset();
-        _titleController.clear();
-        _descriptionController.clear();
-        _provinceController.clear();
-        _typeController.clear();
-        _salaryMinController.clear();
-        _salaryMaxController.clear();
-        _tagsController.clear();
+        _clearForm();
       }
     } catch (error) {
       if (mounted) {
@@ -92,7 +130,6 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
           _isLoading = false;
         });
 
-        // Show error message
         final languageState = ref.read(languageProvider);
         final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -109,6 +146,7 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
   Widget build(BuildContext context) {
     final languageState = ref.watch(languageProvider);
     final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
+    final languageCode = languageState.languageCode;
 
     return Scaffold(
       appBar: AppBar(
@@ -149,20 +187,44 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _provinceController,
+              DropdownButtonFormField<String>(
+                value: _selectedProvince,
                 decoration: InputDecoration(
                   labelText: t('province'),
                   border: const OutlineInputBorder(),
                 ),
+                items: _provinceKeys.map((String key) {
+                  return DropdownMenuItem<String>(
+                    value: key,
+                    child: Text(AppLocalizations.translate(key, languageCode)),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedProvince = newValue;
+                  });
+                },
+                validator: (value) => value == null ? t('province_required') : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _typeController,
+              DropdownButtonFormField<String>(
+                value: _selectedJobType,
                 decoration: InputDecoration(
                   labelText: t('job_type'),
                   border: const OutlineInputBorder(),
                 ),
+                items: _jobTypeKeys.map((String key) {
+                  return DropdownMenuItem<String>(
+                    value: key,
+                    child: Text(AppLocalizations.translate(key, languageCode)),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedJobType = newValue;
+                  });
+                },
+                validator: (value) => value == null ? t('job_type_required') : null,
               ),
               const SizedBox(height: 16),
               Row(

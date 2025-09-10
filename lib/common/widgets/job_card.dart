@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/language_service.dart';
 import 'bookmark_button.dart';
+import 'company_logo_widget.dart';
 
 class JobCard extends StatelessWidget {
   final Map<String, dynamic> job;
@@ -28,7 +29,7 @@ class JobCard extends StatelessWidget {
       
       if (diff == 0) return AppLocalizations.translate('today', languageCode);
       if (diff == 1) return AppLocalizations.translate('yesterday', languageCode);
-      if (diff < 7) return '${AppLocalizations.translate('days_ago', languageCode)} $diff';
+      if (diff < 7) return '$diff ${AppLocalizations.translate('days_ago', languageCode)}';
       if (diff < 30) return '${(diff / 7).floor()} ${AppLocalizations.translate('weeks_ago', languageCode)}';
       return '${(diff / 30).floor()} ${AppLocalizations.translate('months_ago', languageCode)}';
     } catch (e) {
@@ -38,7 +39,6 @@ class JobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get language code from context or default to Lao
     final languageCode = Localizations.maybeLocaleOf(context)?.languageCode ?? 'lo';
     
     final title = job['title'] ?? '';
@@ -48,6 +48,7 @@ class JobCard extends StatelessWidget {
     final tags = (job['tags'] as List?)?.cast<String>() ?? [];
     final salaryText = _formatSalary(job['salaryMin'], job['salaryMax'], languageCode);
     final dateText = _formatDate(job['createdAt'], languageCode);
+    final companyLogoUrl = job['companyLogoUrl'] as String?;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -76,23 +77,15 @@ class JobCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with company logo and title
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Company logo placeholder
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.business,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 24,
-                      ),
+                    // Company Logo
+                    CompanyLogoWidget(
+                      logoUrl: companyLogoUrl,
+                      companyName: company,
+                      size: 48,
+                      borderRadius: 12,
                     ),
                     const SizedBox(width: 12),
                     // Job title and company
