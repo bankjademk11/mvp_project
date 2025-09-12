@@ -1,11 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:appwrite/models.dart';
 import '../../services/job_service.dart';
 import '../../common/widgets/search_bar.dart';
 import '../../common/widgets/job_card.dart';
 import '../../common/widgets/notification_badge.dart';
 import '../../services/language_service.dart';
+import 'job_filters.dart';
+
+// Provider to fetch all jobs once
+final allJobsProvider = FutureProvider<List<Document>>((ref) {
+  final jobService = ref.watch(JobService.jobServiceProvider);
+  return jobService.getJobs();
+});
+
+// Provider to apply filters to the job list
+final filteredJobsProvider = Provider<List<Document>>((ref) {
+  final allJobs = ref.watch(allJobsProvider).asData?.value ?? [];
+  final filters = ref.watch(jobFiltersProvider);
+  final languageCode = ref.watch(languageProvider).languageCode;
+
+  if (allJobs.isEmpty) return [];
+
+  return allJobs.where((job) {
+    final data = job.data;
+    final title = (data['title'] as String? ?? '').toLowerCase();
+    final companyName = (data['companyName'] as String? ?? '').toLowerCase();
+    final province = data['province'] as String? ?? '';
+    final type = data['type'] as String? ?? '';
+
+    // Keyword filter (searches title and company name)
+    if (filters.keyword != null && filters.keyword!.isNotEmpty) {
+      final keyword = filters.keyword!.toLowerCase();
+      if (!title.contains(keyword) && !companyName.contains(keyword)) {
+        return false;
+      }
+    }
+
+    // Province filter
+    if (filters.provinceKey != null && filters.provinceKey!.isNotEmpty) {
+      final translatedProvince = AppLocalizations.translate(filters.provinceKey!, languageCode);
+      if (province != translatedProvince) {
+        return false;
+      }
+    }
+
+    // Job type filter
+    if (filters.jobTypeKey != null && filters.jobTypeKey!.isNotEmpty) {
+      final translatedJobType = AppLocalizations.translate(filters.jobTypeKey!, languageCode);
+      if (type != translatedJobType) {
+        return false;
+      }
+    }
+
+    return true;
+  }).toList();
+});
 
 class JobListPage extends ConsumerStatefulWidget {
   const JobListPage({super.key});
@@ -15,15 +66,35 @@ class JobListPage extends ConsumerStatefulWidget {
 }
 
 class _JobListPageState extends ConsumerState<JobListPage> {
-  final _search = TextEditingController();
-  String _keyword = '';
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the controller with the current filter keyword
+    _searchController = TextEditingController(text: ref.read(jobFiltersProvider).keyword);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final jobService = ref.watch(JobService.jobServiceProvider);
     final languageState = ref.watch(languageProvider);
     final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
-    
+    final filteredJobs = ref.watch(filteredJobsProvider);
+    final allJobsState = ref.watch(allJobsProvider);
+
+    // Listen to filter changes to update the search bar text if needed
+    ref.listen(jobFiltersProvider, (previous, next) {
+      if (next.keyword != _searchController.text) {
+        _searchController.text = next.keyword ?? '';
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Text(t('all_jobs')),
@@ -44,33 +115,26 @@ class _JobListPageState extends ConsumerState<JobListPage> {
         child: Column(
           children: [
             SearchBarField(
-              controller: _search,
+              controller: _searchController, // Pass the controller
               onFilter: () => context.push('/filters'),
-              onChanged: (v) => setState(() { _keyword = v.trim().toLowerCase(); }),
+              onChanged: (v) => ref.read(jobFiltersProvider.notifier).update((state) => state.copyWith(keyword: v)),
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: FutureBuilder<List>(
-                future: _keyword.isEmpty ? jobService.getJobs() : jobService.searchJobs(_keyword),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  
-                  final jobs = snapshot.data ?? [];
-                  
-                  if (jobs.isEmpty) {
+              child: allJobsState.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Center(child: Text('Error: $err')),
+                data: (allJobs) {
+                  if (allJobs.isEmpty) {
                     return Center(child: Text(t('no_jobs_found')));
                   }
-                  
+                  if (filteredJobs.isEmpty) {
+                    return Center(child: Text(t('no_jobs_match_filters')));
+                  }
                   return ListView.builder(
-                    itemCount: jobs.length,
+                    itemCount: filteredJobs.length,
                     itemBuilder: (_, i) {
-                      final job = jobs[i];
+                      final job = filteredJobs[i];
                       return JobCard(
                         job: {
                           'id': job.$id,

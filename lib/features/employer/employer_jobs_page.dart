@@ -14,7 +14,7 @@ class EmployerJobsPage extends ConsumerStatefulWidget {
 }
 
 class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
-  late Future<List> _jobsFuture;
+  late Future<List<dynamic>> _jobsFuture;
 
   @override
   void initState() {
@@ -24,51 +24,21 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
 
   void _loadJobs() {
     final authState = ref.read(authProvider);
-    final jobService = ref.read(JobService.jobServiceProvider);
-    
     if (authState.user != null) {
-      // Debug: Print user information
-      print('Current user information:');
-      print('- UID: ${authState.user!.uid}');
-      print('- Display Name: ${authState.user!.displayName}');
-      print('- Company Name: ${authState.user!.companyName}');
-      print('- Role: ${authState.user!.role}');
-      
-      // First try using getJobsByCompanyId
-      _jobsFuture = jobService.getJobsByCompanyId(authState.user!.uid).catchError((error) {
-        print('Error in getJobsByCompanyId: $error');
-        // If getJobsByCompanyId fails, try the manual filtering approach
-        print('getJobsByCompanyId failed, trying manual filtering...');
-        return jobService.getJobs().then((allJobs) {
-          // Debug: Print all jobs data
-          print('Total jobs fetched: ${allJobs.length}');
-          for (var job in allJobs) {
-            print('Job ID: ${job.$id}');
-            print('- Title: ${job.data['title']}');
-            print('- Company ID: ${job.data['companyId']}');
-            print('- Company Name: ${job.data['companyName']}');
-            print('---');
-          }
-          
-          // กรองเฉพาะงานที่มี companyId ตรงกับ UID ของผู้ใช้
-          final filteredJobs = allJobs.where((job) => job.data['companyId'] == authState.user!.uid).toList();
-          print('Filtered jobs count: ${filteredJobs.length}');
-          return filteredJobs as List;
-        }).catchError((error2) {
-          print('Error in fallback approach: $error2');
-          return [] as List;
-        });
-      }) as Future<List>;
+      final jobService = ref.read(JobService.jobServiceProvider);
+      setState(() {
+        _jobsFuture = jobService.getJobsByCompanyId(authState.user!.uid);
+      });
     } else {
-      print('No user logged in');
-      _jobsFuture = Future.value([]) as Future<List>;
+      setState(() {
+        _jobsFuture = Future.value([]);
+      });
     }
   }
 
   Future<void> _refreshJobs() async {
-    setState(() {
-      _loadJobs();
-    });
+    // No need to call setState here as _loadJobs now handles it.
+    _loadJobs();
   }
 
   @override
@@ -87,7 +57,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
           ),
         ],
       ),
-      body: FutureBuilder<List>(
+      body: FutureBuilder<List<dynamic>>(
         future: _jobsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -95,8 +65,6 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
           }
 
           if (snapshot.hasError) {
-            // Debug: Print error
-            print('Snapshot error: ${snapshot.error}');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -170,7 +138,7 @@ class _EmployerJobsPageState extends ConsumerState<EmployerJobsPage> {
                     'companyLogoUrl': authState.user?.companyLogoUrl,
                   },
                   onTap: () {
-                    // นำทางไปหน้ารายละเอียดงาน
+                    // Navigate to job details page for employer
                     context.push('/employer/job/${job.$id}');
                   },
                 );

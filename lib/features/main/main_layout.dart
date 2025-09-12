@@ -194,16 +194,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         height: 65,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       ),
-      floatingActionButton: (!isEmployer && _selectedIndex == 0) ? FloatingActionButton.extended(
-        onPressed: () => context.push('/post-job'),
+      floatingActionButton: (isEmployer && _selectedIndex == 1) ? FloatingActionButton.extended(
+        onPressed: () => context.push('/employer/post-job'), // Use correct guarded route
         icon: const Icon(Icons.add),
-        label: Text(t('post_job')),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-      ) : (isEmployer && _selectedIndex == 1) ? FloatingActionButton.extended(
-        onPressed: () => context.push('/post-job'),
-        icon: const Icon(Icons.add),
-        label: const Text('ໂພສຕ້ງານໃຫມ່'),
+        label: Text(t('post_new_job')), // Use translation key
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ) : null,

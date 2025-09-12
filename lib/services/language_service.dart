@@ -416,6 +416,33 @@ class AppLocalizations {
       'province_required': 'ກະລຸນາເລືອກແຂວງ',
       'job_type_required': 'ກະລຸນາເລືອກປະເພດງານ',
 
+      // Setup Company Page
+      'setup_company_profile': 'ຕັ້ງຄ່າໂປຣໄຟລ໌ບໍລິສັດ',
+      'setup_company_subtitle': 'ກະລຸນາໃສ່ຂໍ້ມູນບໍລິສັດຂອງທ່ານໃຫ້ຄົບຖ້ວນ',
+      'company_logo': 'ໂລໂກ້ບໍລິສັດ',
+      'uploading': 'ກຳລັງອັບໂຫລດ...',
+      'upload_logo': 'ອັບໂຫລດໂລໂກ້',
+      'remove_logo': 'ລົບໂລໂກ້',
+      'industry_type': 'ປະເພດອຸດສາຫະກໍາ',
+      'company_size': 'ຂະໜາດບໍລິສັດ',
+      'saving': 'ກຳລັງບັນທຶກ...',
+      'save_data': 'ບັນທຶກຂໍ້ມູນ',
+
+      // Dashboard & Analytics
+      'dashboard_overview_subtitle': 'ພາບລວມໜ້າແດຊ໌ບອດຂອງທ່ານ',
+      'active_jobs': 'ວຽກທີ່ເປີດຮັບ',
+      'new_applicants_today': 'ຜູ້ສະໝັກໃໝ່ມື້ນີ້',
+      'create_new_job_listing': 'ສ້າງປະກາດວຽກໃໝ່',
+      'edit_your_job_posts': 'ແກ້ໄຂປະກາດວຽກຂອງທ່ານ',
+      'messages': 'ຂໍ້ຄວາມ',
+      'communicate_with_candidates': 'ສົນທະນາກັບຜູ້ສະໝັກ',
+      'job_performance': 'ປະສິດທິພາບຂອງວຽກ',
+      'total_views': 'ຍອດເບິ່ງທັງໝົດ',
+      'total_applications': 'ຍອດສະໝັກທັງໝົດ',
+      'conversion_rate': 'ອັດຕາການສະໝັກ',
+      'applicant_stats': 'ສະຖິຕິຜູ້ສະໝັກ',
+      'no_jobs_match_filters': 'ບໍ່ພົບວຽກທີ່ກົງກັບເງື່ອນໄຂການກັ່ນຕອງຂອງທ່ານ',
+
       // Job Types
       'job_type_full_time': 'ເຕັມເວລາ',
       'job_type_part_time': 'ບໍ່ເຕັມເວລາ',
@@ -442,6 +469,24 @@ class AppLocalizations {
       'province_xaisomboun': 'ແຂວງໄຊສົມບູນ',
       'province_xiangkhouang': 'ແຂວງຊຽງຂວາງ',
       'vientiane_capital': 'ນະຄອນຫຼວງວຽງຈັນ',
+
+      // Industries
+      'industry_technology': 'ເທກໂນໂລຢີສາລະສະໜ່ອງ',
+      'industry_finance': 'ການເງິນ',
+      'industry_education': 'ການສຶກສາ',
+      'industry_healthcare': 'ສາທາລະນະສຸກ',
+      'industry_commerce': 'ການຄ້າ',
+      'industry_manufacturing': 'ອຸດສາຫະກໍາ',
+      'industry_service': 'ບໍລິການ',
+      'industry_other': 'ອື່ນໆ',
+
+      // Company Sizes
+      'company_size_1_10': '1-10 ຄົນ',
+      'company_size_11_50': '11-50 ຄົນ',
+      'company_size_51_200': '51-200 ຄົນ',
+      'company_size_201_500': '201-500 ຄົນ',
+      'company_size_501_1000': '501-1000 ຄົນ',
+      'company_size_1000_plus': '1000+ ຄົນ',
     }
   };
 

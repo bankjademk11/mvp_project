@@ -5,33 +5,37 @@ import '../../services/language_service.dart';
 
 // Filter state provider
 class JobFilters {
-  final String? province;
-  final String? jobType;
+  final String? keyword;
+  final String? provinceKey; // Stores the key, e.g., 'province_vientiane'
+  final String? jobTypeKey; // Stores the key, e.g., 'job_type_full_time'
   final RangeValues salaryRange;
   final List<String> selectedSkills;
   final String? experience;
   final String sortBy;
 
   const JobFilters({
-    this.province,
-    this.jobType,
-    this.salaryRange = const RangeValues(5, 25), // In millions
+    this.keyword,
+    this.provinceKey,
+    this.jobTypeKey,
+    this.salaryRange = const RangeValues(3, 50), // In millions
     this.selectedSkills = const [],
     this.experience,
     this.sortBy = 'latest',
   });
 
   JobFilters copyWith({
-    String? province,
-    String? jobType,
+    String? keyword,
+    String? provinceKey,
+    String? jobTypeKey,
     RangeValues? salaryRange,
     List<String>? selectedSkills,
     String? experience,
     String? sortBy,
   }) {
     return JobFilters(
-      province: province ?? this.province,
-      jobType: jobType ?? this.jobType,
+      keyword: keyword ?? this.keyword,
+      provinceKey: provinceKey ?? this.provinceKey,
+      jobTypeKey: jobTypeKey ?? this.jobTypeKey,
       salaryRange: salaryRange ?? this.salaryRange,
       selectedSkills: selectedSkills ?? this.selectedSkills,
       experience: experience ?? this.experience,
@@ -51,37 +55,50 @@ class JobFiltersPage extends ConsumerStatefulWidget {
 
 class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
   late JobFilters _filters;
-  
-  final _provinces = const [
-    'Vientiane Capital',
-    'Luang Prabang', 
-    'Savannakhet',
-    'Champasak',
-    'Khammouane',
-    'Bolikhamsai',
+
+  // Keys from language_service.dart
+  final _provinceKeys = const [
+    'province_attapue',
+    'province_bokeo',
+    'province_bolikhamxai',
+    'province_champasak',
+    'province_houaphanh',
+    'province_khammouane',
+    'province_luang_namtha',
+    'province_luang_prabang',
+    'province_oudomxay',
+    'province_phongsaly',
+    'province_salavan',
+    'province_savannakhet',
+    'province_sainyabuli',
+    'province_sekong',
+    'province_vientiane',
+    'province_xaisomboun',
+    'province_xiangkhouang',
+    'vientiane_capital',
   ];
-  
-  final _jobTypes = const [
-    'Full-time',
-    'Part-time',
-    'Contract',
-    'Freelance',
-    'Internship',
+
+  final _jobTypeKeys = const [
+    'job_type_full_time',
+    'job_type_part_time',
+    'job_type_contract',
+    'job_type_internship',
+    'job_type_temporary',
   ];
-  
+
   final _experienceLevels = const [
     'new/no experience',
     '1-2 years',
     '3-5 years',
     '5+ years',
   ];
-  
+
   final _availableSkills = const [
     'Flutter', 'React', 'Node.js', 'Python', 'Java',
     'Sales', 'Marketing', 'Design', 'Management',
     'Customer Service', 'Data Analysis', 'Accounting',
   ];
-  
+
   final _sortOptions = const {
     'latest': 'Latest',
     'salary_high': 'Salary: High-Low',
@@ -107,53 +124,38 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
 
   void _applyFilters() {
     ref.read(jobFiltersProvider.notifier).state = _filters;
-    Navigator.pop(context, _filters);
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final languageState = ref.watch(languageProvider);
-    final languageCode = languageState.languageCode;
-    
-    // Get translations
-    final filterTitle = AppLocalizations.translate('filter', languageCode);
-    final clearAll = AppLocalizations.translate('clear_all', languageCode);
-    final location = AppLocalizations.translate('location', languageCode);
-    final selectProvince = AppLocalizations.translate('select_province', languageCode);
-    final jobType = AppLocalizations.translate('job_type', languageCode);
-    final selectJobType = AppLocalizations.translate('select_job_type', languageCode);
-    final salaryRange = AppLocalizations.translate('salary_range', languageCode);
-    final laoCurrency = AppLocalizations.translate('lao_currency', languageCode);
-    final experienceLevel = AppLocalizations.translate('experience_level', languageCode);
-    final selectExperience = AppLocalizations.translate('select_experience', languageCode);
-    final requiredSkills = AppLocalizations.translate('requirements', languageCode);
-    final sortBy = AppLocalizations.translate('sort_by', languageCode);
-    final applyFilters = AppLocalizations.translate('apply_filters', languageCode);
-    
+    final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
+
     // Experience level translations
     final experienceTranslations = {
-      'new/no experience': AppLocalizations.translate('no_experience', languageCode),
-      '1-2 years': AppLocalizations.translate('experience_1_2_years', languageCode),
-      '3-5 years': AppLocalizations.translate('experience_3_5_years', languageCode),
-      '5+ years': AppLocalizations.translate('experience_5_plus_years', languageCode),
+      'new/no experience': t('no_experience'),
+      '1-2 years': t('experience_1_2_years'),
+      '3-5 years': t('experience_3_5_years'),
+      '5+ years': t('experience_5_plus_years'),
     };
-    
+
     // Sort option translations
     final sortOptionTranslations = {
-      'latest': AppLocalizations.translate('sort_latest', languageCode),
-      'salary_high': AppLocalizations.translate('sort_salary_high_low', languageCode),
-      'salary_low': AppLocalizations.translate('sort_salary_low_high', languageCode),
-      'company': AppLocalizations.translate('sort_company_az', languageCode),
+      'latest': t('sort_latest'),
+      'salary_high': t('sort_salary_high_low'),
+      'salary_low': t('sort_salary_low_high'),
+      'company': t('sort_company_az'),
     };
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(filterTitle),
+        title: Text(t('filter')),
         elevation: 0,
         actions: [
           TextButton(
             onPressed: _resetFilters,
-            child: Text(clearAll),
+            child: Text(t('clear_all')),
           ),
         ],
       ),
@@ -165,57 +167,57 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
               children: [
                 // Location Filter
                 _buildFilterSection(
-                  title: location,
+                  title: t('location'),
                   icon: Icons.location_on_outlined,
                   child: DropdownButtonFormField<String>(
-                    value: _filters.province,
+                    value: _filters.provinceKey,
                     decoration: InputDecoration(
-                      hintText: selectProvince,
+                      hintText: t('select_province'),
                       prefixIcon: const Icon(Icons.location_on_outlined),
                     ),
-                    items: _provinces.map((province) {
+                    items: _provinceKeys.map((key) {
                       return DropdownMenuItem(
-                        value: province,
-                        child: Text(province),
+                        value: key,
+                        child: Text(t(key)),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setState(() {
-                        _filters = _filters.copyWith(province: value);
+                        _filters = _filters.copyWith(provinceKey: value);
                       });
                     },
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Job Type Filter
                 _buildFilterSection(
-                  title: jobType,
+                  title: t('job_type'),
                   icon: Icons.work_outline,
                   child: DropdownButtonFormField<String>(
-                    value: _filters.jobType,
+                    value: _filters.jobTypeKey,
                     decoration: InputDecoration(
-                      hintText: selectJobType,
+                      hintText: t('select_job_type'),
                       prefixIcon: const Icon(Icons.work_outline),
                     ),
-                    items: _jobTypes.map((type) {
+                    items: _jobTypeKeys.map((key) {
                       return DropdownMenuItem(
-                        value: type,
-                        child: Text(type),
+                        value: key,
+                        child: Text(t(key)),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setState(() {
-                        _filters = _filters.copyWith(jobType: value);
+                        _filters = _filters.copyWith(jobTypeKey: value);
                       });
                     },
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Salary Range Filter
                 _buildFilterSection(
-                  title: '$salaryRange ($laoCurrency)',
+                  title: '${t('salary_range')} (${t('lao_currency')})',
                   icon: Icons.payments_outlined,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,16 +243,16 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
                           Text(
                             _formatSalary(_filters.salaryRange.start),
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                           ),
                           Text(
                             _formatSalary(_filters.salaryRange.end),
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                           ),
                         ],
                       ),
@@ -258,15 +260,15 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Experience Level Filter
                 _buildFilterSection(
-                  title: experienceLevel,
+                  title: t('experience_level'),
                   icon: Icons.star_outline,
                   child: DropdownButtonFormField<String>(
                     value: _filters.experience,
                     decoration: InputDecoration(
-                      hintText: selectExperience,
+                      hintText: t('select_experience'),
                       prefixIcon: const Icon(Icons.star_outline),
                     ),
                     items: _experienceLevels.map((level) {
@@ -283,10 +285,10 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Skills Filter
                 _buildFilterSection(
-                  title: requiredSkills,
+                  title: t('requirements'),
                   icon: Icons.psychology_outlined,
                   child: Wrap(
                     spacing: 8,
@@ -312,10 +314,10 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Sort By Filter
                 _buildFilterSection(
-                  title: sortBy,
+                  title: t('sort_by'),
                   icon: Icons.sort,
                   child: Column(
                     children: _sortOptions.entries.map((entry) {
@@ -354,7 +356,7 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _resetFilters,
-                    child: Text(clearAll),
+                    child: Text(t('clear_all')),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -362,7 +364,7 @@ class _JobFiltersPageState extends ConsumerState<JobFiltersPage> {
                   flex: 2,
                   child: FilledButton(
                     onPressed: _applyFilters,
-                    child: Text(applyFilters),
+                    child: Text(t('apply_filters')),
                   ),
                 ),
               ],
