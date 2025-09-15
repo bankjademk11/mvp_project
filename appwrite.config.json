@@ -509,6 +509,26 @@
             "entrypoint": "lib/main.dart",
             "commands": "dart pub get",
             "path": "functions/createApplication"
+        },
+        {
+            "$id": "68c7ad6e002ccdeb7c17",
+            "name": "getApplicationsForEmployer",
+            "runtime": "dart-3.5",
+            "specification": "s-0.5vcpu-512mb",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "users.read"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "lib/main.dart",
+            "commands": "dart pub get",
+            "path": "functions/getApplicationsForEmployer"
         }
     ]
 }

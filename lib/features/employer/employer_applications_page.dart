@@ -6,16 +6,19 @@ import '../../services/language_service.dart';
 import '../../services/application_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/application.dart';
+import '../../services/auth_service.dart'; // Add this import
 
 // Provider to fetch all applications for a specific job
 final applicationsForJobProvider =
     FutureProvider.family<List<models.Document>, String?>((ref, jobId) {
-  if (jobId == null) {
-    // In a real app, you might want to fetch all applications for the employer
+  final authState = ref.watch(authProvider);
+  final currentUser = authState.user;
+
+  if (jobId == null || currentUser == null) {
     return Future.value([]);
   }
   final applicationService = ref.watch(ApplicationService.applicationServiceProvider);
-  return applicationService.getApplicationsForJob(jobId);
+  return applicationService.getApplicationsForEmployer(jobId, currentUser.uid);
 });
 
 class EmployerApplicationsPage extends ConsumerStatefulWidget {
@@ -115,6 +118,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         itemCount: filteredApps.length,
         itemBuilder: (context, index) {
           final application = filteredApps[index];
+          print('DEBUG: Application Data: ${application.data}'); // Gemini Debug Print
           return _buildApplicationCard(context, application, t);
         },
       ),

@@ -179,9 +179,18 @@ class AuthService {
         try {
           final newTeam = await _appwriteService.teams.create(
             teamId: ID.unique(),
-            name: companyName ?? displayName, // Use company name for the team
+            name: companyName ?? displayName,
           );
           teamId = newTeam.$id;
+
+          // Add the employer to the team as an owner
+          await _appwriteService.teams.createMembership(
+            teamId: teamId,
+            email: email, // Invite by email
+            roles: ['owner'], // Assign owner role
+            url: 'https://cloud.appwrite.io', // A placeholder URL is required
+          );
+
         } on AppwriteException catch (e) {
           print('Error creating team: ${e.message}');
           // Decide how to handle team creation failure. For now, we'll proceed without a team.

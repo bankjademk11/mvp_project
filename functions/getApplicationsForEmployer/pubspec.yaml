@@ -1,0 +1,8 @@
+name: get_applications_for_employer
+description: Appwrite Cloud Function to securely fetch job applications for an employer.
+version: 1.0.0
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  dart_appwrite: ^11.0.0

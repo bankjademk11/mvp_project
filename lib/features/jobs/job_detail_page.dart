@@ -329,7 +329,15 @@ class _JobDetailViewState extends ConsumerState<_JobDetailView> {
         ],
       ),
       bottomNavigationBar: isJobPoster
-          ? null
+          ? Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: PrimaryButton(
+                text: t('view_applicants'),
+                onPressed: () {
+                  context.push('/employer/applications?jobId=${widget.job.$id}');
+                },
+              ),
+            )
           : Container(
               padding: const EdgeInsets.all(16),
               child: PrimaryButton(

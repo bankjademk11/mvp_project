@@ -49,6 +49,28 @@ class ApplicationService {
     }
   }
 
+  // This function calls the new cloud function to securely get applications for an employer
+  Future<List<models.Document>> getApplicationsForEmployer(String jobId, String userId) async {
+    try {
+      final payload = {'jobId': jobId, 'callingUserId': userId};
+      final execution = await _appwriteService.functions.createExecution(
+        functionId: '68c7ad6e002ccdeb7c17',
+        body: jsonEncode(payload),
+      );
+
+      if (execution.status == 'failed') {
+        throw Exception('Cloud function execution failed: ${execution.responseBody}');
+      }
+
+      final responseData = jsonDecode(execution.responseBody);
+      final docList = models.DocumentList.fromMap(responseData);
+      return docList.documents;
+
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to execute function: ${e.message}');
+    }
+  }
+
   // This function now calls the Appwrite Cloud Function
   Future<void> submitApplication({
     required String userId,
