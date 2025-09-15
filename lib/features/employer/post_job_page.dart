@@ -106,6 +106,7 @@ class _PostJobPageState extends ConsumerState<PostJobPage> {
             ? []
             : _tagsController.text.split(',').map((tag) => tag.trim()).toList(),
         companyId: authState.user?.uid ?? '',
+        teamId: authState.user?.teamId, // Add this
       );
 
       if (mounted) {

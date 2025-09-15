@@ -69,3 +69,6 @@ lib/generated_plugin_registrant.dart
 # Windows related
 windows/flutter/generated_plugin_registrant.cc
 windows/flutter/generated_plugin_registrant.h
+
+# Ignore screenshots
+*.png

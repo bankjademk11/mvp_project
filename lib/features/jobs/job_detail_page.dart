@@ -134,8 +134,28 @@ class _JobDetailViewState extends ConsumerState<_JobDetailView> {
                         : () async {
                             setModalState(() => _isApplying = true);
                             try {
+                              final authState = ref.read(authProvider);
+                              final applicantName = authState.user?.displayName;
+
+                              // Use creatorUserId if available, otherwise fall back to companyId for older data.
+                              final employerId = widget.job.data['creatorUserId'] ?? widget.job.data['companyId'];
+                              final teamId = widget.job.data['teamId']; // Add this
+
+                              if (applicantName == null || applicantName.isEmpty) {
+                                throw Exception('Applicant name is missing.');
+                              }
+                              if (employerId == null || employerId.isEmpty) {
+                                throw Exception('Could not determine Employer ID from job data.');
+                              }
+                              if (teamId == null || teamId.isEmpty) {
+                                throw Exception('Could not determine Team ID from job data.');
+                              }
+
                               await ref.read(applicationProvider.notifier).submitApplication(
                                     jobId: widget.job.$id,
+                                    applicantName: applicantName,
+                                    employerId: employerId,
+                                    teamId: teamId, // Add this
                                     jobTitle: widget.job.data['title'] ?? '',
                                     companyName: widget.job.data['companyName'] ?? '',
                                     coverLetter: coverLetterController.text,

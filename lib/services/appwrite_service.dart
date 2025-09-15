@@ -6,6 +6,8 @@ class AppwriteService {
   late Account account;
   late Databases databases;
   late Storage storage;
+  late Teams teams;
+  late Functions functions; // Add this
 
   AppwriteService() {
     _init();
@@ -20,6 +22,8 @@ class AppwriteService {
     account = Account(client);
     databases = Databases(client);
     storage = Storage(client);
+    teams = Teams(client);
+    functions = Functions(client); // Add this
   }
 }
 

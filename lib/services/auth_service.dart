@@ -60,16 +60,11 @@ class AuthService {
 
   Future<User?> login(String email, String password) async {
     try {
-      // Clear any existing rate limit for login
-      RateLimiter.reset('login');
-      
-      // Check if there's an active session and log out if needed
+      // Aggressively log out first to ensure a clean session state
       try {
-        await _appwriteService.account.get();
-        // If we get here, there's an active session, so log out first
-        await _appwriteService.account.deleteSession(sessionId: 'current');
+        await logout();
       } catch (e) {
-        // If there's no active session, this is expected, so we continue
+        // Ignore errors if already logged out
       }
 
       await _appwriteService.account.createEmailPasswordSession(
@@ -151,16 +146,11 @@ class AuthService {
     String? companyLogoUrl,
   }) async {
     try {
-      // Clear any existing rate limit for register
-      RateLimiter.reset('register');
-      
-      // Check if there's an active session and log out if needed
+      // Aggressively log out first to ensure a clean session state
       try {
-        await _appwriteService.account.get();
-        // If we get here, there's an active session, so log out first
-        await _appwriteService.account.deleteSession(sessionId: 'current');
+        await logout();
       } catch (e) {
-        // If there's no active session, this is expected, so we continue
+        // Ignore errors if already logged out
       }
 
       // Create user account
@@ -183,6 +173,21 @@ class AuthService {
         prefs: {'role': role},
       );
 
+      // If the user is an employer, create a team for them
+      String? teamId;
+      if (role == 'employer') {
+        try {
+          final newTeam = await _appwriteService.teams.create(
+            teamId: ID.unique(),
+            name: companyName ?? displayName, // Use company name for the team
+          );
+          teamId = newTeam.$id;
+        } on AppwriteException catch (e) {
+          print('Error creating team: ${e.message}');
+          // Decide how to handle team creation failure. For now, we'll proceed without a team.
+        }
+      }
+
       // Create user profile document in the database
       final profileData = {
         'userId': userId,
@@ -192,6 +197,7 @@ class AuthService {
         'bio': bio ?? '',
         'resumeUrl': resumeUrl ?? '',
         'avatarUrl': avatarUrl ?? '',
+        'teamId': teamId, // Add teamId to profile
         // Employer-specific fields
         'companyName': companyName ?? '',
         'companySize': companySize ?? '',
@@ -537,6 +543,7 @@ class AuthService {
       website: profileDocument?.data['website'] as String?,
       companyAddress: profileDocument?.data['companyAddress'] as String?,
       companyLogoUrl: profileDocument?.data['companyLogoUrl'] as String?,
+      teamId: profileDocument?.data['teamId'] as String?, // Add this
     );
   }
 }

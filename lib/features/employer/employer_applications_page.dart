@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:appwrite/models.dart' as models;
 import '../../services/language_service.dart';
+import '../../services/application_service.dart';
+import '../../services/notification_service.dart';
+import '../../models/application.dart';
+
+// Provider to fetch all applications for a specific job
+final applicationsForJobProvider =
+    FutureProvider.family<List<models.Document>, String?>((ref, jobId) {
+  if (jobId == null) {
+    // In a real app, you might want to fetch all applications for the employer
+    return Future.value([]);
+  }
+  final applicationService = ref.watch(ApplicationService.applicationServiceProvider);
+  return applicationService.getApplicationsForJob(jobId);
+});
 
 class EmployerApplicationsPage extends ConsumerStatefulWidget {
   final String? jobId;
@@ -19,77 +34,11 @@ class EmployerApplicationsPage extends ConsumerStatefulWidget {
 class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsPage>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  String _selectedFilter = 'all';
-  late List<Map<String, dynamic>> _allApplications;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _initializeMockApplications();
-  }
-
-  void _initializeMockApplications() {
-    _allApplications = [
-      {
-        'id': '1',
-        'applicantId': 'user_001',
-        'applicantName': 'ສົມຊາຍ ໃຈດີ',
-        'email': 'somchai@email.com',
-        'phone': '020-123-4567',
-        'location': 'ນະຄອນຫຼວງວຽງຈັນ',
-        'position': 'ນັກພັດທະນາ Flutter',
-        'experience': 3,
-        'skills': ['Flutter', 'Dart', 'Firebase', 'REST API'],
-        'status': 'pending',
-        'appliedDate': '2 ຊົ່ວໂມງກ່ອນ',
-        'hasCV': true,
-        'coverLetter':
-            'ຂ້າພະເຈົ້າສົນໃຈຕຳແໜ່ງນີ້ຫຼາຍ ແລະ ມີປະສົບການໃນການພັດທະນາ Flutter 3 ປີ...',
-      },
-      {
-        'id': '2',
-        'applicantId': 'user_002',
-        'applicantName': 'ສົມຍິງ ຮັກງານ',
-        'email': 'somying@email.com',
-        'phone': '020-234-5678',
-        'location': 'ສະຫວັນນະເຂດ',
-        'position': 'UI/UX Designer',
-        'experience': 2,
-        'skills': ['Figma', 'Adobe XD', 'Sketch', 'Prototyping'],
-        'status': 'approved',
-        'appliedDate': '5 ຊົ່ວໂມງກ່ອນ',
-        'hasCV': true,
-      },
-      {
-        'id': '3',
-        'applicantId': 'user_003',
-        'applicantName': 'ວິໄຊ ຂยัน',
-        'email': 'wichai@email.com',
-        'phone': '020-345-6789',
-        'location': 'ປາກເຊ',
-        'position': 'ນັກພັດທະນາ Flutter',
-        'experience': 1,
-        'skills': ['Flutter', 'Dart', 'Git'],
-        'status': 'rejected',
-        'appliedDate': '1 ມື້ກ່ອນ',
-        'hasCV': true,
-      },
-      {
-        'id': '4',
-        'applicantId': 'user_004',
-        'applicantName': 'ນາລີ ສວຍງາມ',
-        'email': 'naree@email.com',
-        'phone': '020-456-7890',
-        'location': 'ຫຼວງພະບາງ',
-        'position': 'Frontend Developer',
-        'experience': 4,
-        'skills': ['React', 'Vue.js', 'TypeScript', 'CSS'],
-        'status': 'interviewed',
-        'appliedDate': '3 ມື້ກ່ອນ',
-        'hasCV': true,
-      },
-    ];
   }
 
   @override
@@ -102,11 +51,13 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   Widget build(BuildContext context) {
     final languageCode = ref.watch(languageProvider).languageCode;
     final t = (key) => AppLocalizations.translate(key, languageCode);
+    final applicationsAsyncValue = ref.watch(applicationsForJobProvider(widget.jobId));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.jobId != null ? t('applicants') : t('all_applications')),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 1,
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -117,112 +68,53 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
             Tab(text: t('rejected_applications')),
           ],
         ),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) => setState(() => _selectedFilter = value),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'all',
-                child: Row(
-                  children: [
-                    const Icon(Icons.filter_list_off),
-                    const SizedBox(width: 8),
-                    Text(t('all')),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'today',
-                child: Row(
-                  children: [
-                    const Icon(Icons.today),
-                    const SizedBox(width: 8),
-                    Text(t('today')),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'week',
-                child: Row(
-                  children: [
-                    const Icon(Icons.date_range),
-                    const SizedBox(width: 8),
-                    Text(t('this_week')),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'month',
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_month),
-                    const SizedBox(width: 8),
-                    Text(t('this_month')),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildApplicationList(context, 'all'),
-          _buildApplicationList(context, 'pending'),
-          _buildApplicationList(context, 'approved'),
-          _buildApplicationList(context, 'rejected'),
-        ],
+      body: applicationsAsyncValue.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (applications) {
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildApplicationList(context, 'all', applications),
+              _buildApplicationList(context, 'pending', applications),
+              _buildApplicationList(context, ApplicationStatus.accepted.value, applications),
+              _buildApplicationList(context, ApplicationStatus.rejected.value, applications),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildApplicationList(BuildContext context, String status) {
-    final languageCode = ref.watch(languageProvider).languageCode;
-    final t = (key) => AppLocalizations.translate(key, languageCode);
-    final applications = _getFilteredApplications(status);
+  Widget _buildApplicationList(
+      BuildContext context, String status, List<models.Document> allApplications) {
+    final t = (key) => AppLocalizations.translate(key, ref.watch(languageProvider).languageCode);
+    
+    final filteredApps = status == 'all'
+        ? allApplications
+        : allApplications.where((app) => app.data['status'] == status).toList();
 
-    if (applications.isEmpty) {
+    if (filteredApps.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            Text(
-              t('no_applications'),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              t('no_applications_in_status'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade500,
-                  ),
-            ),
+            Text(t('no_applications_in_status'), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
           ],
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _initializeMockApplications();
-        });
-        await Future.delayed(const Duration(seconds: 1));
-      },
+      onRefresh: () => ref.refresh(applicationsForJobProvider(widget.jobId).future),
       child: ListView.builder(
         padding: const EdgeInsets.all(16.0),
-        itemCount: applications.length,
+        itemCount: filteredApps.length,
         itemBuilder: (context, index) {
-          final application = applications[index];
+          final application = filteredApps[index];
           return _buildApplicationCard(context, application, t);
         },
       ),
@@ -230,11 +122,17 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   }
 
   Widget _buildApplicationCard(
-      BuildContext context, Map<String, dynamic> application, Function t) {
+      BuildContext context, models.Document application, Function t) {
+    final applicationData = application.data;
+    final status = applicationData['status'] ?? 'pending';
+    final applicantName = applicationData['applicantName'] as String? ?? t('unknown_applicant');
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () => _showApplicationDetails(context, application, t),
+        onTap: () { /* TODO: Show details */ },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -245,14 +143,10 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor:
-                        _getStatusColor(application['status']).withOpacity(0.1),
+                    backgroundColor: _getStatusColor(status).withOpacity(0.1),
                     child: Text(
-                      application['applicantName'].substring(0, 1),
-                      style: TextStyle(
-                        color: _getStatusColor(application['status']),
-                        fontWeight: FontWeight.bold,
-                      ),
+                      applicantName.isNotEmpty ? applicantName.substring(0, 1) : '?',
+                      style: TextStyle(color: _getStatusColor(status), fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -260,121 +154,56 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          application['applicantName'],
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
+                        Text(applicantName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text(
-                          application['position'],
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey.shade600,
-                              ),
-                        ),
+                        Text(applicationData['jobTitle'] ?? '', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(application['status']).withOpacity(0.1),
+                      color: _getStatusColor(status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      _getStatusText(application['status'], t),
-                      style: TextStyle(
-                        color: _getStatusColor(application['status']),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      _getStatusText(status, t),
+                      style: TextStyle(color: _getStatusColor(status), fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              // ... (rest of the card UI is unchanged)
+              const Divider(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${t('applied_on')}: ${application['appliedDate']}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey.shade500,
-                        ),
+                    '${t('applied_on')}: ${applicationData['appliedAt'] ?? ''}', // TODO: Format date
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
                   ),
                   Row(
                     children: [
-                      if (application['hasCV'] == true)
-                        TextButton.icon(
-                          onPressed: () => _viewCV(context, application, t),
-                          icon: const Icon(Icons.description_outlined, size: 16),
-                          label: Text(t('view_cv')),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
+                      TextButton.icon(
+                        onPressed: () { /* TODO: View CV */ },
+                        icon: const Icon(Icons.description_outlined, size: 16),
+                        label: Text(t('view_cv')),
+                      ),
                       const SizedBox(width: 8),
                       PopupMenuButton<String>(
-                        onSelected: (value) =>
-                            _handleApplicationAction(context, value, application, t),
+                        onSelected: (value) => _handleApplicationAction(context, value, application, t),
                         itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'approve',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.check_circle_outline, color: Colors.green),
-                                const SizedBox(width: 8),
-                                Text(t('approve')),
-                              ],
+                          if (status == 'pending')
+                            PopupMenuItem(
+                              value: 'approve',
+                              child: Row(children: [const Icon(Icons.check_circle_outline, color: Colors.green), const SizedBox(width: 8), Text(t('approve'))]),
                             ),
-                          ),
-                          PopupMenuItem(
-                            value: 'reject',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.cancel_outlined, color: Colors.red),
-                                const SizedBox(width: 8),
-                                Text(t('reject')),
-                              ],
+                          if (status == 'pending' || status == 'approved')
+                            PopupMenuItem(
+                              value: 'reject',
+                              child: Row(children: [const Icon(Icons.cancel_outlined, color: Colors.red), const SizedBox(width: 8), Text(t('reject'))]),
                             ),
-                          ),
-                          PopupMenuItem(
-                            value: 'interview',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_outlined),
-                                const SizedBox(width: 8),
-                                Text(t('schedule_interview_action')),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'message',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.message_outlined),
-                                const SizedBox(width: 8),
-                                Text(t('send_message')),
-                              ],
-                            ),
-                          ),
                         ],
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.more_vert, size: 16),
-                        ),
+                        child: const Icon(Icons.more_vert, size: 16),
                       ),
                     ],
                   ),
@@ -388,113 +217,70 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
+    final appStatus = ApplicationStatus.fromString(status);
+    switch (appStatus) {
+      case ApplicationStatus.pending:
         return Colors.orange;
-      case 'approved':
+      case ApplicationStatus.accepted:
         return Colors.green;
-      case 'rejected':
+      case ApplicationStatus.rejected:
         return Colors.red;
-      case 'interviewed':
-        return Colors.blue;
       default:
         return Colors.grey;
     }
   }
 
   String _getStatusText(String status, Function t) {
-    switch (status) {
-      case 'pending':
-        return t('pending_review');
-      case 'approved':
-        return t('shortlisted');
-      case 'rejected':
-        return t('rejected_applications');
-      case 'interviewed':
-        return t('interviewed');
-      default:
-        return t('unspecified');
-    }
-  }
-
-  void _showApplicationDetails(
-      BuildContext context, Map<String, dynamic> application, Function t) {
-    // ... (This method remains unchanged)
-  }
-
-  Widget _buildDetailItem(String label, String value) {
-    // ... (This method remains unchanged)
-    return Container();
-  }
-
-  void _viewCV(BuildContext context, Map<String, dynamic> application, Function t) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${t('open_cv_of')} ${application['applicantName']}'),
-        action: SnackBarAction(
-          label: t('download'),
-          onPressed: () {
-            // TODO: Implement CV download
-          },
-        ),
-      ),
-    );
+    final appStatus = ApplicationStatus.fromString(status);
+    return t(appStatus.displayNameKey);
   }
 
   void _handleApplicationAction(
     BuildContext context,
     String action,
-    Map<String, dynamic> application,
+    models.Document application,
     Function t,
   ) {
+    ApplicationStatus newStatus;
     switch (action) {
       case 'approve':
-        _showConfirmDialog(
-          context,
-          t('approve_application_title'),
-          t('approve_application_confirm').replaceAll('{name}', application['applicantName']),
-          () {
-            setState(() {
-              final index = _allApplications.indexWhere((app) => app['id'] == application['id']);
-              if (index != -1) {
-                _allApplications[index]['status'] = 'approved';
-              }
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(t('application_approved_success'))),
-            );
-          },
-          t,
-        );
+        newStatus = ApplicationStatus.accepted;
         break;
       case 'reject':
-        _showConfirmDialog(
-          context,
-          t('reject_application_title'),
-          t('reject_application_confirm').replaceAll('{name}', application['applicantName']),
-          () {
-            setState(() {
-              final index = _allApplications.indexWhere((app) => app['id'] == application['id']);
-              if (index != -1) {
-                _allApplications[index]['status'] = 'rejected';
-              }
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(t('application_rejected_success'))),
-            );
-          },
-          t,
-        );
+        newStatus = ApplicationStatus.rejected;
         break;
-      case 'interview':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(t('interview_feature_dev'))),
-        );
-        break;
-      case 'message':
-        context.push('/chats/new?userId=${application['applicantId']}');
-        break;
+      default:
+        return;
     }
+
+    _showConfirmDialog(
+      context,
+      t('${action}_application_title'),
+      t('${action}_application_confirm').replaceAll('{name}', application.data['applicantName'] ?? 'applicant'),
+      () async {
+        try {
+          final appService = ref.read(ApplicationService.applicationServiceProvider);
+          await appService.updateApplicationStatus(application.$id, newStatus);
+
+          ref.invalidate(applicationsForJobProvider(widget.jobId));
+
+          final notifService = ref.read(notificationServiceProvider.notifier);
+          await notifService.sendApplicationNotification(
+            newStatus.getDisplayName(ref.read(languageProvider).languageCode),
+            application.data['jobTitle'] ?? '',
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(t('application_${action}d_success') ?? 'Status updated')),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      },
+      t,
+    );
   }
 
   void _showConfirmDialog(
@@ -510,24 +296,13 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         title: Text(title),
         content: Text(content),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t('cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
-            },
-            child: Text(t('confirm')),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(t('cancel'))),
+          FilledButton(onPressed: () {
+            Navigator.pop(context);
+            onConfirm();
+          }, child: Text(t('confirm'))),
         ],
       ),
     );
-  }
-
-  List<Map<String, dynamic>> _getFilteredApplications(String status) {
-    if (status == 'all') return _allApplications;
-    return _allApplications.where((app) => app['status'] == status).toList();
   }
 }

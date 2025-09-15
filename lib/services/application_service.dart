@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart' as appwrite;
 import 'package:appwrite/models.dart' as models;
@@ -14,7 +15,6 @@ class ApplicationService {
 
   Future<List<JobApplication>> getApplications(String userId) async {
     try {
-      // Simulate network delay
       await Future.delayed(const Duration(milliseconds: 500));
       
       final response = await _appwriteService.databases.listDocuments(
@@ -33,8 +33,27 @@ class ApplicationService {
     }
   }
 
-  Future<JobApplication> submitApplication({
+  Future<List<models.Document>> getApplicationsForJob(String jobId) async {
+    try {
+      final response = await _appwriteService.databases.listDocuments(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        queries: [
+          appwrite.Query.equal('jobId', jobId),
+          appwrite.Query.orderDesc('appliedAt'),
+        ],
+      );
+      return response.documents;
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to fetch applications for job: ${e.message}');
+    }
+  }
+
+  // This function now calls the Appwrite Cloud Function
+  Future<void> submitApplication({
     required String userId,
+    required String applicantName,
+    required String? teamId,
     required String jobId,
     required String jobTitle,
     required String companyName,
@@ -42,30 +61,28 @@ class ApplicationService {
     String? resumeUrl,
   }) async {
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(milliseconds: 1000));
-      
-      final applicationData = {
+      final payload = {
         'userId': userId,
+        'applicantName': applicantName,
+        'teamId': teamId,
         'jobId': jobId,
         'jobTitle': jobTitle,
         'companyName': companyName,
-        'status': 'pending',
-        'appliedAt': DateTime.now().toIso8601String(),
         'coverLetter': coverLetter,
         'resumeUrl': resumeUrl,
       };
-      
-      final response = await _appwriteService.databases.createDocument(
-        databaseId: _databaseId,
-        collectionId: _applicationsCollectionId,
-        documentId: appwrite.ID.unique(),
-        data: applicationData,
+
+      final execution = await _appwriteService.functions.createExecution(
+        functionId: '68c54ec6000177bb4ead', // Use the Function ID, not the name
+        body: jsonEncode(payload),
       );
-      
-      return JobApplication.fromJson(response.data);
+
+      if (execution.status == 'failed') {
+        throw Exception('Cloud function execution failed: ${execution.responseBody}');
+      }
+
     } on appwrite.AppwriteException catch (e) {
-      throw Exception('Failed to submit application: ${e.message}');
+      throw Exception('Failed to execute function: ${e.message}');
     }
   }
 
@@ -104,7 +121,6 @@ class ApplicationService {
     }
   }
   
-  // Provider for ApplicationService
   static final applicationServiceProvider = Provider<ApplicationService>((ref) {
     final appwriteService = ref.watch(appwriteServiceProvider);
     return ApplicationService(appwriteService);
@@ -137,6 +153,9 @@ class ApplicationNotifier extends StateNotifier<AsyncValue<List<JobApplication>>
 
   Future<void> submitApplication({
     required String jobId,
+    required String applicantName,
+    required String employerId, // Keep for compatibility, but it's unused now
+    required String? teamId,
     required String jobTitle,
     required String companyName,
     String? coverLetter,
@@ -148,8 +167,10 @@ class ApplicationNotifier extends StateNotifier<AsyncValue<List<JobApplication>>
     }
     
     try {
-      final application = await _service.submitApplication(
+      await _service.submitApplication(
         userId: _userId!,
+        applicantName: applicantName,
+        teamId: teamId,
         jobId: jobId,
         jobTitle: jobTitle,
         companyName: companyName,
@@ -157,7 +178,6 @@ class ApplicationNotifier extends StateNotifier<AsyncValue<List<JobApplication>>
         resumeUrl: resumeUrl,
       );
       
-      // Reload applications
       await _loadApplications();
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);

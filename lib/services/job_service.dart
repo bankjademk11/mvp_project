@@ -22,8 +22,12 @@ class JobService {
     int? salaryMax,
     List<String>? tags,
     String? companyId,
+    String? teamId, // Add this
   }) async {
     try {
+      // Get the current user to associate with the job
+      final currentUser = await _appwriteService.account.get();
+
       final data = {
         'title': title,
         'companyName': companyName,
@@ -34,36 +38,26 @@ class JobService {
         'salaryMax': salaryMax,
         'tags': tags ?? [],
         'companyId': companyId ?? '',
+        'creatorUserId': currentUser.$id, // Save the creator's user ID
+        'teamId': teamId ?? '', // Add this
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
         'isActive': true,
       };
 
-      // Try without permissions first
-      try {
-        final response = await _appwriteService.databases.createDocument(
-          databaseId: _databaseId,
-          collectionId: _jobsCollectionId,
-          documentId: appwrite.ID.unique(),
-          data: data,
-        );
-        return response;
-      } catch (e) {
-        // If that fails, try with basic permissions
-        final currentUser = await _appwriteService.account.get();
-        final response = await _appwriteService.databases.createDocument(
-          databaseId: _databaseId,
-          collectionId: _jobsCollectionId,
-          documentId: appwrite.ID.unique(),
-          data: data,
-          permissions: [
-            appwrite.Permission.read(appwrite.Role.any()),
-            appwrite.Permission.update(appwrite.Role.any()),
-            appwrite.Permission.delete(appwrite.Role.any()),
-          ],
-        );
-        return response;
-      }
+      // Create the document with permissions
+      final response = await _appwriteService.databases.createDocument(
+        databaseId: _databaseId,
+        collectionId: _jobsCollectionId,
+        documentId: appwrite.ID.unique(),
+        data: data,
+        permissions: [
+          appwrite.Permission.read(appwrite.Role.any()), // Anyone can read the job posting
+          appwrite.Permission.update(appwrite.Role.user(currentUser.$id)), // Only the creator can update
+          appwrite.Permission.delete(appwrite.Role.user(currentUser.$id)), // Only the creator can delete
+        ],
+      );
+      return response;
     } on appwrite.AppwriteException catch (e) {
       throw Exception('Failed to create job: Code=${e.code}, Message=${e.message}, Type=${e.type}');
     }

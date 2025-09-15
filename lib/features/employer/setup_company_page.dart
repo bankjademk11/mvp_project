@@ -323,7 +323,36 @@ class _SetupCompanyPageState extends ConsumerState<SetupCompanyPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ...
+                      TextFormField(
+                        controller: _companyNameController,
+                        decoration: InputDecoration(
+                          labelText: t('company_name') ?? 'Company Name',
+                          prefixIcon: const Icon(Icons.business),
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return t('company_name_required') ?? 'Company name is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _companyDescriptionController,
+                        decoration: InputDecoration(
+                          labelText: t('company_description') ?? 'Company Description',
+                          prefixIcon: const Icon(Icons.article),
+                          border: const OutlineInputBorder(),
+                        ),
+                        maxLines: 4,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return t('company_description_required') ?? 'Company description is required';
+                          }
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 20),
                       DropdownButtonFormField<String>(
                         value: _selectedIndustryKey,

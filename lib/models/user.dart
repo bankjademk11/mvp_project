@@ -18,6 +18,7 @@ class User {
   final String? website;
   final String? companyAddress;
   final String? companyLogoUrl; // เพิ่ม field สำหรับเก็บ URL ของโลโก้บริษัท
+  final String? teamId; // Add this
 
   const User({
     required this.uid,
@@ -38,6 +39,7 @@ class User {
     this.website,
     this.companyAddress,
     this.companyLogoUrl, // เพิ่ม parameter สำหรับ companyLogoUrl
+    this.teamId, // Add this
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -60,6 +62,7 @@ class User {
       website: json['website'],
       companyAddress: json['companyAddress'],
       companyLogoUrl: json['companyLogoUrl'], // เพิ่มการดึงข้อมูล companyLogoUrl
+      teamId: json['teamId'], // Add this
     );
   }
 
@@ -83,6 +86,7 @@ class User {
       'website': website,
       'companyAddress': companyAddress,
       'companyLogoUrl': companyLogoUrl, // เพิ่มการบันทึก companyLogoUrl
+      'teamId': teamId, // Add this
     };
   }
 
@@ -105,6 +109,7 @@ class User {
     String? website,
     String? companyAddress,
     String? companyLogoUrl, // เพิ่ม parameter สำหรับ companyLogoUrl
+    String? teamId, // Add this
   }) {
     return User(
       uid: uid ?? this.uid,
@@ -124,6 +129,7 @@ class User {
       website: website ?? this.website,
       companyAddress: companyAddress ?? this.companyAddress,
       companyLogoUrl: companyLogoUrl ?? this.companyLogoUrl, // เพิ่มการ copy companyLogoUrl
+      teamId: teamId ?? this.teamId, // Add this
     );
   }
 }
