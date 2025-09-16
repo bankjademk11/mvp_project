@@ -53,21 +53,75 @@ class ApplicationService {
   Future<List<models.Document>> getApplicationsForEmployer(String jobId, String userId) async {
     try {
       final payload = {'jobId': jobId, 'callingUserId': userId};
+      print('Calling getApplicationsForEmployer with jobId: $jobId, userId: $userId');
+      
       final execution = await _appwriteService.functions.createExecution(
         functionId: '68c7ad6e002ccdeb7c17',
         body: jsonEncode(payload),
       );
+
+      print('Cloud function execution status: ${execution.status}');
+      print('Cloud function response: ${execution.responseBody}');
 
       if (execution.status == 'failed') {
         throw Exception('Cloud function execution failed: ${execution.responseBody}');
       }
 
       final responseData = jsonDecode(execution.responseBody);
-      final docList = models.DocumentList.fromMap(responseData);
-      return docList.documents;
+      
+      // Check if the response indicates success
+      if (responseData is Map && responseData['success'] == false) {
+        throw Exception('Cloud function error: ${responseData['message']}');
+      }
+
+      // แปลงข้อมูลที่ได้จาก Cloud function เป็น List<models.Document> อย่างระมัดระวัง
+      if (responseData is Map && responseData.containsKey('documents')) {
+        final List<dynamic> documentsData = responseData['documents'] as List<dynamic>;
+        final List<models.Document> documents = [];
+
+        // ประมวลผลแต่ละ document อย่างระมัดระวัง
+        for (var docData in documentsData) {
+          try {
+            if (docData is Map<String, dynamic>) {
+              // FIX: The data structure from the function is malformed.
+              // The '$sequence' and other metadata are nested inside the 'data' field.
+              // We need to create a corrected map before passing it to the parser.
+              final Map<String, dynamic> mutableDocData = Map<String, dynamic>.from(docData);
+              final Map<String, dynamic> dataMap = Map<String, dynamic>.from(mutableDocData['data'] ?? {});
+
+              // Hoist the sequence number from the nested data map to the top level
+              // as the Document.fromMap constructor expects it there.
+              if (dataMap.containsKey('\$sequence') && !mutableDocData.containsKey('\$sequence')) {
+                mutableDocData['\$sequence'] = dataMap['\$sequence'];
+              }
+
+              // Now, parse the corrected map.
+              final document = models.Document.fromMap(mutableDocData);
+              documents.add(document);
+            }
+          } catch (docError) {
+            print('Error processing document: $docError');
+            print('Document data: $docData');
+            // ข้าม document ที่มีปัญหา แทนที่จะหยุดการทำงานทั้งหมด
+            continue;
+          }
+        }
+        
+        print('Successfully fetched ${documents.length} applications');
+        return documents;
+      } else {
+        // กรณีที่ข้อมูลไม่ได้อยู่ในรูปแบบที่คาดหวัง
+        print('Unexpected response format: $responseData');
+        return [];
+      }
 
     } on appwrite.AppwriteException catch (e) {
+      print('AppwriteException in getApplicationsForEmployer: ${e.message}');
       throw Exception('Failed to execute function: ${e.message}');
+    } catch (e, stackTrace) {
+      print('Exception in getApplicationsForEmployer: $e');
+      print('Stack trace: $stackTrace');
+      throw Exception('Failed to execute function: ${e.toString()}');
     }
   }
 

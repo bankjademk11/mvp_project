@@ -63,11 +63,26 @@ class _JobDetailView extends ConsumerStatefulWidget {
 class _JobDetailViewState extends ConsumerState<_JobDetailView> {
   bool _isApplying = false;
 
-  String _formatSalary(dynamic min, dynamic max, String languageCode) {
-    final t = (key) => AppLocalizations.translate(key, languageCode);
-    if (min == null || max == null) return t('negotiable');
-    final formatter = NumberFormat('#,###');
-    return '${formatter.format(min)} - ${formatter.format(max)} ${t('lao_currency')}';
+  String _formatSalary(int? min, int? max, String languageCode) {
+    if (min == null && max == null) {
+      return AppLocalizations.translate('salary_negotiable', languageCode);
+    }
+    
+    final formatCurrency = NumberFormat('#,##0', 'lo');
+    
+    if (min != null && max != null) {
+      return '${formatCurrency.format(min)} - ${formatCurrency.format(max)} ${AppLocalizations.translate('lao_currency', languageCode)}';
+    }
+    
+    if (min != null) {
+      return '${AppLocalizations.translate('from', languageCode)} ${formatCurrency.format(min)} ${AppLocalizations.translate('lao_currency', languageCode)}';
+    }
+    
+    if (max != null) {
+      return '${AppLocalizations.translate('up_to', languageCode)} ${formatCurrency.format(max)} ${AppLocalizations.translate('lao_currency', languageCode)}';
+    }
+    
+    return AppLocalizations.translate('salary_negotiable', languageCode);
   }
 
   String _formatDate(String? dateStr, String languageCode) {
@@ -207,9 +222,24 @@ class _JobDetailViewState extends ConsumerState<_JobDetailView> {
     final province = job.data['province'] ?? '';
     final type = job.data['type'] ?? 'Full-time';
     final tags = List<String>.from(job.data['tags'] ?? []);
-    final description = job.data['description'] ?? '';
-    final salaryText = _formatSalary(job.data['salaryMin'], job.data['salaryMax'], languageCode);
+    // Handle potential null or incorrect type values for salary fields with improved null safety
+    final salaryMin = job.data['salaryMin'] != null
+        ? (job.data['salaryMin'] is int 
+            ? job.data['salaryMin'] as int 
+            : job.data['salaryMin'] is double 
+                ? (job.data['salaryMin'] as double).toInt() 
+                : null)
+        : null;
+    final salaryMax = job.data['salaryMax'] != null
+        ? (job.data['salaryMax'] is int 
+            ? job.data['salaryMax'] as int 
+            : job.data['salaryMax'] is double 
+                ? (job.data['salaryMax'] as double).toInt() 
+                : null)
+        : null;
+    final salaryText = _formatSalary(salaryMin, salaryMax, languageCode);
     final dateText = _formatDate(job.data['createdAt'], languageCode);
+    final description = job.data['description'] ?? '';
 
     final isBookmarked = bookmarkState.isBookmarked(job.$id);
     final isJobPoster = authState.user?.role == 'employer' && authState.user?.uid == companyId;

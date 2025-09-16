@@ -135,6 +135,22 @@ class _JobListPageState extends ConsumerState<JobListPage> {
                     itemCount: filteredJobs.length,
                     itemBuilder: (_, i) {
                       final job = filteredJobs[i];
+                      // Handle potential null or incorrect type values for salary fields with improved null safety
+                      final salaryMinValue = job.data['salaryMin'] != null
+                          ? (job.data['salaryMin'] is int 
+                              ? job.data['salaryMin'] as int 
+                              : job.data['salaryMin'] is double 
+                                  ? (job.data['salaryMin'] as double).toInt() 
+                                  : null)
+                          : null;
+                      final salaryMaxValue = job.data['salaryMax'] != null
+                          ? (job.data['salaryMax'] is int 
+                              ? job.data['salaryMax'] as int 
+                              : job.data['salaryMax'] is double 
+                                  ? (job.data['salaryMax'] as double).toInt() 
+                                  : null)
+                          : null;
+                      
                       return JobCard(
                         job: {
                           'id': job.$id,
@@ -143,8 +159,8 @@ class _JobListPageState extends ConsumerState<JobListPage> {
                           'province': job.data['province'] ?? '',
                           'type': job.data['type'] ?? '',
                           'tags': List<String>.from(job.data['tags'] ?? []),
-                          'salaryMin': job.data['salaryMin'],
-                          'salaryMax': job.data['salaryMax'],
+                          'salaryMin': salaryMinValue,
+                          'salaryMax': salaryMaxValue,
                           'createdAt': job.data['createdAt'],
                         },
                         onTap: () => context.push('/jobs/${job.$id}'),

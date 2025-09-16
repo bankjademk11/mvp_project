@@ -341,7 +341,14 @@
                     "encrypt": false
                 }
             ],
-            "indexes": []
+            "indexes": [
+                {
+                    "key": "isActive",
+                    "type": "key",
+                    "attributes": ["isActive"],
+                    "orders": ["ASC"]
+                }
+            ]
         },
         {
             "$id": "applications",
@@ -453,7 +460,14 @@
                     "encrypt": false
                 }
             ],
-            "indexes": []
+            "indexes": [
+                {
+                    "key": "jobId",
+                    "type": "key",
+                    "attributes": ["jobId"],
+                    "orders": ["ASC"]
+                }
+            ]
         }
     ],
     "buckets": [

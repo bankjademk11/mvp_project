@@ -10,14 +10,26 @@ class JobCard extends StatelessWidget {
 
   const JobCard({super.key, required this.job, this.onTap});
 
-  String _formatSalary(dynamic min, dynamic max, String languageCode) {
-    if (min == null || max == null) return AppLocalizations.translate('negotiable', languageCode);
+  String _formatSalary(int? min, int? max, String languageCode) {
+    if (min == null && max == null) {
+      return AppLocalizations.translate('salary_negotiable', languageCode);
+    }
     
-    final formatter = NumberFormat('#,###');
-    final minStr = formatter.format(min / 1000000); // Convert to millions
-    final maxStr = formatter.format(max / 1000000);
+    final formatCurrency = NumberFormat('#,##0', 'lo');
     
-    return '${minStr}M - ${maxStr}M ${AppLocalizations.translate('lao_currency', languageCode)}';
+    if (min != null && max != null) {
+      return '${formatCurrency.format(min)} - ${formatCurrency.format(max)} ${AppLocalizations.translate('lao_currency', languageCode)}';
+    }
+    
+    if (min != null) {
+      return '${AppLocalizations.translate('from', languageCode)} ${formatCurrency.format(min)} ${AppLocalizations.translate('lao_currency', languageCode)}';
+    }
+    
+    if (max != null) {
+      return '${AppLocalizations.translate('up_to', languageCode)} ${formatCurrency.format(max)} ${AppLocalizations.translate('lao_currency', languageCode)}';
+    }
+    
+    return AppLocalizations.translate('salary_negotiable', languageCode);
   }
 
   String _formatDate(String? dateStr, String languageCode) {
@@ -46,7 +58,22 @@ class JobCard extends StatelessWidget {
     final province = job['province'] ?? '';
     final type = job['type'] ?? 'Full-time';
     final tags = (job['tags'] as List?)?.cast<String>() ?? [];
-    final salaryText = _formatSalary(job['salaryMin'], job['salaryMax'], languageCode);
+    // Ensure proper null safety for salary fields
+    final salaryMin = job['salaryMin'] != null 
+        ? (job['salaryMin'] is int 
+            ? job['salaryMin'] as int 
+            : job['salaryMin'] is double 
+                ? (job['salaryMin'] as double).toInt() 
+                : null)
+        : null;
+    final salaryMax = job['salaryMax'] != null
+        ? (job['salaryMax'] is int 
+            ? job['salaryMax'] as int 
+            : job['salaryMax'] is double 
+                ? (job['salaryMax'] as double).toInt() 
+                : null)
+        : null;
+    final salaryText = _formatSalary(salaryMin, salaryMax, languageCode);
     final dateText = _formatDate(job['createdAt'], languageCode);
     final companyLogoUrl = job['companyLogoUrl'] as String?;
 

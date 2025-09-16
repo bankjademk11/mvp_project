@@ -1,25 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:appwrite/models.dart' as models;
 import '../../services/language_service.dart';
 import '../../services/application_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/application.dart';
-import '../../services/auth_service.dart'; // Add this import
+import '../../services/auth_service.dart';
 
-// Provider to fetch all applications for a specific job
-final applicationsForJobProvider =
-    FutureProvider.family<List<models.Document>, String?>((ref, jobId) {
-  final authState = ref.watch(authProvider);
-  final currentUser = authState.user;
-
-  if (jobId == null || currentUser == null) {
-    return Future.value([]);
-  }
-  final applicationService = ref.watch(ApplicationService.applicationServiceProvider);
-  return applicationService.getApplicationsForEmployer(jobId, currentUser.uid);
-});
+// NOTE: The FutureProvider was removed as it was causing data consistency issues.
+// We are now using a StatefulWidget with a FutureBuilder for more direct control.
 
 class EmployerApplicationsPage extends ConsumerStatefulWidget {
   final String? jobId;
@@ -37,11 +26,14 @@ class EmployerApplicationsPage extends ConsumerStatefulWidget {
 class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsPage>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  late Future<List<models.Document>> _applicationsFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    // Fetch initial data
+    _fetchApplications();
   }
 
   @override
@@ -50,11 +42,27 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     super.dispose();
   }
 
+  void _fetchApplications() {
+    final applicationService = ref.read(ApplicationService.applicationServiceProvider);
+    final currentUser = ref.read(authProvider).user;
+    if (widget.jobId != null && currentUser != null) {
+      _applicationsFuture = applicationService.getApplicationsForEmployer(widget.jobId!, currentUser.uid);
+    } else {
+      _applicationsFuture = Future.value([]);
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    // Trigger a refetch and update the UI
+    setState(() {
+      _fetchApplications();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final languageCode = ref.watch(languageProvider).languageCode;
     final t = (key) => AppLocalizations.translate(key, languageCode);
-    final applicationsAsyncValue = ref.watch(applicationsForJobProvider(widget.jobId));
 
     return Scaffold(
       appBar: AppBar(
@@ -72,17 +80,52 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
           ],
         ),
       ),
-      body: applicationsAsyncValue.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
-        data: (applications) {
+      body: FutureBuilder<List<models.Document>>(
+        future: _applicationsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _handleRefresh,
+                    child: Text(t('retry')),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+             return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 16),
+                    Text(t('no_applications_found'), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
+                  ],
+                ),
+              );
+          }
+          
+          final applications = snapshot.data!;
           return TabBarView(
             controller: _tabController,
             children: [
-              _buildApplicationList(context, 'all', applications),
-              _buildApplicationList(context, 'pending', applications),
-              _buildApplicationList(context, ApplicationStatus.accepted.value, applications),
-              _buildApplicationList(context, ApplicationStatus.rejected.value, applications),
+              _buildApplicationList(context, 'all', applications, t),
+              _buildApplicationList(context, 'pending', applications, t),
+              _buildApplicationList(context, ApplicationStatus.accepted.value, applications, t),
+              _buildApplicationList(context, ApplicationStatus.rejected.value, applications, t),
             ],
           );
         },
@@ -91,8 +134,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   }
 
   Widget _buildApplicationList(
-      BuildContext context, String status, List<models.Document> allApplications) {
-    final t = (key) => AppLocalizations.translate(key, ref.watch(languageProvider).languageCode);
+      BuildContext context, String status, List<models.Document> allApplications, Function t) {
     
     final filteredApps = status == 'all'
         ? allApplications
@@ -112,13 +154,12 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(applicationsForJobProvider(widget.jobId).future),
+      onRefresh: _handleRefresh,
       child: ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemCount: filteredApps.length,
         itemBuilder: (context, index) {
           final application = filteredApps[index];
-          print('DEBUG: Application Data: ${application.data}'); // Gemini Debug Print
           return _buildApplicationCard(context, application, t);
         },
       ),
@@ -128,8 +169,20 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   Widget _buildApplicationCard(
       BuildContext context, models.Document application, Function t) {
     final applicationData = application.data;
+
+    final applicantName = applicationData['applicantName']?.toString() ?? t('unknown_applicant');
+    final appliedAtRaw = applicationData['appliedAt'] as String?;
+    String appliedAtFormatted = '';
+    if (appliedAtRaw != null) {
+      try {
+        final dateTime = DateTime.parse(appliedAtRaw);
+        appliedAtFormatted = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      } catch (e) {
+        appliedAtFormatted = appliedAtRaw; // Fallback
+      }
+    }
+
     final status = applicationData['status'] ?? 'pending';
-    final applicantName = applicationData['applicantName'] as String? ?? t('unknown_applicant');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -149,7 +202,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                     radius: 24,
                     backgroundColor: _getStatusColor(status).withOpacity(0.1),
                     child: Text(
-                      applicantName.isNotEmpty ? applicantName.substring(0, 1) : '?',
+                      applicantName.isNotEmpty ? applicantName.substring(0, 1).toUpperCase() : '?',
                       style: TextStyle(color: _getStatusColor(status), fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -182,7 +235,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${t('applied_on')}: ${applicationData['appliedAt'] ?? ''}', // TODO: Format date
+                    '${t('applied_on')}: $appliedAtFormatted',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
                   ),
                   Row(
@@ -266,7 +319,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
           final appService = ref.read(ApplicationService.applicationServiceProvider);
           await appService.updateApplicationStatus(application.$id, newStatus);
 
-          ref.invalidate(applicationsForJobProvider(widget.jobId));
+          _handleRefresh(); // Refresh data after update
 
           final notifService = ref.read(notificationServiceProvider.notifier);
           await notifService.sendApplicationNotification(
