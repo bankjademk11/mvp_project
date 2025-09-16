@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:appwrite/appwrite.dart' as appwrite; // Add this import with alias
 import '../../services/auth_service.dart';
 import '../../services/file_upload_service.dart';
 import '../../common/widgets/primary_button.dart';
@@ -41,7 +42,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     'Xiangkhouang',
     'Vientiane Province',
     'Borikhamxay',
-    'Khammuane',
     'Salavan',
     'Sekong',
     'Attapeu',
@@ -79,7 +79,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           _nameController.text = user?.displayName ?? '';
           _phoneController.text = user?.phone ?? '';
           _bioController.text = user?.bio ?? '';
-          _selectedProvince = user?.province;
+          // Only set province if it exists in our list
+          _selectedProvince = (user?.province != null && _provinces.contains(user?.province)) 
+              ? user?.province 
+              : null;
           _selectedSkills = user?.skills ?? [];
           _profilePictureUrl = user?.avatarUrl;
           _resumeUrl = user?.resumeUrl;
@@ -103,18 +106,32 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('เริ่มบันทึกโปรไฟล์...');
+    if (!_formKey.currentState!.validate()) {
+      print('การตรวจสอบข้อมูลล้มเหลว');
+      return;
+    }
     
     setState(() {
       _isLoading = true;
+      print('เปลี่ยนสถานะเป็นกำลังโหลด...');
     });
     
     try {
       // Get Appwrite service
       final appwriteService = ref.read(appwriteServiceProvider);
       
+      // Get current user
+      final currentUser = ref.read(authProvider).user;
+      if (currentUser == null) {
+        print('ไม่พบข้อมูลผู้ใช้');
+        throw Exception('User not found');
+      }
+      
+      print('กำลังเตรียมข้อมูลโปรไฟล์...');
       // Prepare profile data
       final profileData = {
+        'userId': currentUser.uid, // เพิ่ม userId สำหรับการสร้างเอกสารใหม่
         'phone': _phoneController.text,
         'province': _selectedProvince,
         'skills': _selectedSkills,
@@ -122,19 +139,47 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         'avatarUrl': _profilePictureUrl,
         'resumeUrl': _resumeUrl,
       };
+      print('ข้อมูลโปรไฟล์: $profileData');
       
-      // Update user profile in Appwrite database
-      await appwriteService.databases.updateDocument(
-        databaseId: '68bbb9e6003188d8686f',
-        collectionId: 'user_profiles',
-        documentId: ref.read(authProvider).user!.uid,
-        data: profileData,
-      );
+      print('กำลังส่งข้อมูลไปยัง Appwrite...');
+      
+      try {
+        // พยายามอัปเดตเอกสารก่อน
+        await appwriteService.databases.updateDocument(
+          databaseId: '68bbb9e6003188d8686f',
+          collectionId: 'user_profiles',
+          documentId: currentUser.uid,
+          data: profileData,
+        );
+        print('อัปเดตข้อมูลสำเร็จใน Appwrite');
+      } on appwrite.AppwriteException catch (e) {
+        if (e.code == 404) {
+          // ถ้าไม่พบเอกสาร (404) ให้สร้างเอกสารใหม่
+          print('ไม่พบเอกสาร กำลังสร้างเอกสารใหม่...');
+          await appwriteService.databases.createDocument(
+            databaseId: '68bbb9e6003188d8686f',
+            collectionId: 'user_profiles',
+            documentId: currentUser.uid, // ใช้ userId เป็น documentId
+            data: profileData,
+            permissions: [ // เพิ่ม permissions สำหรับเอกสารใหม่
+              appwrite.Permission.read(appwrite.Role.user(currentUser.uid)),
+              appwrite.Permission.update(appwrite.Role.user(currentUser.uid)),
+              appwrite.Permission.delete(appwrite.Role.user(currentUser.uid)),
+            ],
+          );
+          print('สร้างข้อมูลสำเร็จใน Appwrite');
+        } else {
+          // ถ้าเป็น error อื่น ให้ rethrow
+          rethrow;
+        }
+      }
       
       // Refresh user data
       await ref.read(authProvider.notifier).getCurrentUser();
+      print('โหลดข้อมูลผู้ใช้ใหม่แล้ว');
       
       if (mounted) {
+        print('Widget ยัง mounted อยู่ กำลังอัปเดต UI...');
         setState(() {
           _isLoading = false;
         });
@@ -143,6 +188,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         final languageCode = languageState.languageCode;
         final profileSaved = AppLocalizations.translate('profile_saved', languageCode);
         
+        print('กำลังแสดง SnackBar...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(profileSaved),
@@ -150,9 +196,14 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           ),
         );
         
+        print('กำลังปิดหน้าต่าง...');
         Navigator.pop(context);
+      } else {
+         print('Widget ถูก dispose ไปแล้ว ไม่สามารถอัปเดต UI ได้');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์: $e');
+      print('Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -187,34 +238,37 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     final languageState = ref.watch(languageProvider);
     final languageCode = languageState.languageCode;
     
+    // Define translation function
+    final t = (String key) => AppLocalizations.translate(key, languageCode);
+    
     // Get translations
-    final editProfile = AppLocalizations.translate('edit_profile', languageCode);
-    final tapToChange = AppLocalizations.translate('tap_to_change_profile_picture', languageCode);
-    final personalInfo = AppLocalizations.translate('personal_info', languageCode);
-    final fullName = AppLocalizations.translate('full_name', languageCode);
-    final enterFullName = AppLocalizations.translate('enter_full_name', languageCode);
-    final enterFullNameError = AppLocalizations.translate('enter_full_name_error', languageCode);
-    final nameMinLengthError = AppLocalizations.translate('name_min_length_error', languageCode);
-    final phone = AppLocalizations.translate('phone', languageCode);
-    final enterPhoneHint = AppLocalizations.translate('enter_phone_hint', languageCode);
-    final invalidPhoneError = AppLocalizations.translate('invalid_phone_error', languageCode);
-    final province = AppLocalizations.translate('province', languageCode);
-    final about = AppLocalizations.translate('about', languageCode);
-    final introduceYourself = AppLocalizations.translate('introduce_yourself', languageCode);
-    final enterBioHint = AppLocalizations.translate('enter_bio_hint', languageCode);
-    final bioMaxLengthError = AppLocalizations.translate('bio_max_length_error', languageCode);
-    final skills = AppLocalizations.translate('skills', languageCode);
-    final selectSkills = AppLocalizations.translate('select_skills', languageCode);
-    final selectedSkillsText = AppLocalizations.translate('selected_skills', languageCode);
-    final profilePictureAndDocuments = AppLocalizations.translate('profile_picture_and_documents', languageCode);
-    final profilePicture = AppLocalizations.translate('profile_picture', languageCode);
-    final uploadPicture = AppLocalizations.translate('upload_picture', languageCode);
-    final resume = AppLocalizations.translate('resume', languageCode);
-    final uploadCV = AppLocalizations.translate('upload_cv', languageCode);
-    final profileTip = AppLocalizations.translate('profile_tip', languageCode);
-    final saving = AppLocalizations.translate('saving', languageCode);
-    final save = AppLocalizations.translate('save', languageCode);
-    final featureComingSoon = AppLocalizations.translate('feature_coming_soon', languageCode);
+    final editProfile = t('edit_profile');
+    final tapToChange = t('tap_to_change_profile_picture');
+    final personalInfo = t('personal_info');
+    final fullName = t('full_name');
+    final enterFullName = t('enter_full_name');
+    final enterFullNameError = t('enter_full_name_error');
+    final nameMinLengthError = t('name_min_length_error');
+    final phone = t('phone');
+    final enterPhoneHint = t('enter_phone_hint');
+    final invalidPhoneError = t('invalid_phone_error');
+    final province = t('province');
+    final about = t('about');
+    final introduceYourself = t('introduce_yourself');
+    final enterBioHint = t('enter_bio_hint');
+    final bioMaxLengthError = t('bio_max_length_error');
+    final skills = t('skills');
+    final selectSkills = t('select_skills');
+    final selectedSkillsText = t('selected_skills');
+    final profilePictureAndDocuments = t('profile_picture_and_documents');
+    final profilePicture = t('profile_picture');
+    final uploadPicture = t('upload_picture');
+    final resume = t('resume');
+    final uploadCV = t('upload_cv');
+    final profileTip = t('profile_tip');
+    final saving = t('saving');
+    final save = t('save');
+    final featureComingSoon = t('feature_coming_soon');
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -356,10 +410,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
+                        DropdownButtonFormField<String?>(
                           value: _selectedProvince,
                           decoration: InputDecoration(
                             labelText: province,
+                            hintText: t('select_province'), // ADDED HINT TEXT
                             prefixIcon: const Icon(Icons.location_on),
                           ),
                           items: _provinces.map((province) {
@@ -372,6 +427,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             setState(() {
                               _selectedProvince = value;
                             });
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return t('province_required');
+                            }
+                            return null;
                           },
                         ),
                       ],

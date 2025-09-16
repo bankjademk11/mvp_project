@@ -16,6 +16,7 @@ import 'features/employer/post_job_page.dart';
 import 'features/employer/employer_dashboard_page.dart';
 import 'features/employer/employer_jobs_page.dart';
 import 'features/employer/employer_applications_page.dart';
+import 'features/employer/application_detail_page.dart';
 import 'features/main/main_layout.dart';
 import 'features/bookmarks/bookmarks_page.dart';
 import 'features/notifications/notifications_page.dart';
@@ -169,6 +170,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: '/employer/applications',
             builder: (c, s) => EmployerApplicationsPage(
               jobId: s.uri.queryParameters['jobId'],
+            ),
+          ),
+          // Add route for application detail page
+          GoRoute(
+            path: '/employer/application/:id',
+            builder: (c, s) => ApplicationDetailPage(
+              applicationId: s.pathParameters['id']!,
             ),
           ),
           GoRoute(

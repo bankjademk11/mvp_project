@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart'; // Add this import back
 import '../../services/auth_service.dart';
 import '../../common/widgets/language_switcher.dart';
 
@@ -302,12 +303,33 @@ class ProfilePage extends ConsumerWidget {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('ຟີເຈີອັບໂຫລດໄຟລ໌ຈະຖືກເພີ່ມໃນເວີຊັນຕໍ່ໄປ'),
-                                    ),
-                                  );
+                                onPressed: () async {
+                                  if (user.resumeUrl != null && user.resumeUrl.toString().isNotEmpty) {
+                                    // If resume URL exists, open it in external browser
+                                    final Uri url = Uri.parse(user.resumeUrl.toString());
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                                    } else {
+                                      // Show error message if cannot open URL
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('ບໍ່ສາມາດເປີດໄຟລ໌ເລຊູເມໄດ້'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } else {
+                                    // If no resume URL, show the message about future feature
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('ຟີເຈີອັບໂຫລດໄຟລ໌ຈະຖືກເພີ່ມໃນເວີຊັນຕໍ່ໄປ'),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                                 icon: Icon(
                                   user.resumeUrl != null && user.resumeUrl.toString().isNotEmpty

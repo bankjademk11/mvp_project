@@ -49,6 +49,24 @@ class ApplicationService {
     }
   }
 
+  // New method to get a single application by ID
+  Future<models.Document?> getApplicationById(String applicationId) async {
+    try {
+      final response = await _appwriteService.databases.getDocument(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        documentId: applicationId,
+      );
+      return response;
+    } on appwrite.AppwriteException catch (e) {
+      // If the document is not found, return null
+      if (e.code == 404) {
+        return null;
+      }
+      throw Exception('Failed to fetch application: ${e.message}');
+    }
+  }
+
   // This function calls the new cloud function to securely get applications for an employer
   Future<List<models.Document>> getApplicationsForEmployer(String jobId, String userId) async {
     try {
@@ -79,30 +97,32 @@ class ApplicationService {
         final List<dynamic> documentsData = responseData['documents'] as List<dynamic>;
         final List<models.Document> documents = [];
 
-        // ประมวลผลแต่ละ document อย่างระมัดระวัง
+        // FINAL FIX: Manually parse the document from the cloud function response.
+        // This avoids all issues with Document.fromMap() by building the object field-by-field,
+        // guaranteeing the 'data' property is correctly populated.
         for (var docData in documentsData) {
           try {
             if (docData is Map<String, dynamic>) {
-              // FIX: The data structure from the function is malformed.
-              // The '$sequence' and other metadata are nested inside the 'data' field.
-              // We need to create a corrected map before passing it to the parser.
-              final Map<String, dynamic> mutableDocData = Map<String, dynamic>.from(docData);
-              final Map<String, dynamic> dataMap = Map<String, dynamic>.from(mutableDocData['data'] ?? {});
+              // Ensure the nested 'data' map exists and is of the correct type.
+              final Map<String, dynamic> dataMap = Map<String, dynamic>.from(docData['data'] ?? {});
 
-              // Hoist the sequence number from the nested data map to the top level
-              // as the Document.fromMap constructor expects it there.
-              if (dataMap.containsKey('\$sequence') && !mutableDocData.containsKey('\$sequence')) {
-                mutableDocData['\$sequence'] = dataMap['\$sequence'];
-              }
-
-              // Now, parse the corrected map.
-              final document = models.Document.fromMap(mutableDocData);
+              final document = models.Document(
+                $id: docData['\$id'],
+                $collectionId: docData['\$collectionId'],
+                $databaseId: docData['\$databaseId'],
+                $createdAt: docData['\$createdAt'],
+                $updatedAt: docData['\$updatedAt'],
+                $permissions: List<String>.from(docData['\$permissions']),
+                // FIX: Add the required '\$sequence' parameter.
+                // It's nested in the 'data' map from the cloud function's response.
+                $sequence: dataMap['\$sequence'] as int? ?? 0,
+                data: dataMap, // Directly assign the nested data map.
+              );
               documents.add(document);
             }
           } catch (docError) {
-            print('Error processing document: $docError');
-            print('Document data: $docData');
-            // ข้าม document ที่มีปัญหา แทนที่จะหยุดการทำงานทั้งหมด
+            print('FATAL: Manual document parsing failed: $docError');
+            print('Problematic docData: $docData');
             continue;
           }
         }

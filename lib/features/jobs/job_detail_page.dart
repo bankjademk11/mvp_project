@@ -151,6 +151,7 @@ class _JobDetailViewState extends ConsumerState<_JobDetailView> {
                             try {
                               final authState = ref.read(authProvider);
                               final applicantName = authState.user?.displayName;
+                              final resumeUrl = authState.user?.resumeUrl; // GET RESUME URL FROM USER PROFILE
 
                               // Use creatorUserId if available, otherwise fall back to companyId for older data.
                               final employerId = widget.job.data['creatorUserId'] ?? widget.job.data['companyId'];
@@ -174,6 +175,7 @@ class _JobDetailViewState extends ConsumerState<_JobDetailView> {
                                     jobTitle: widget.job.data['title'] ?? '',
                                     companyName: widget.job.data['companyName'] ?? '',
                                     coverLetter: coverLetterController.text,
+                                    resumeUrl: resumeUrl, // PASS THE RESUME URL HERE
                                   );
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
