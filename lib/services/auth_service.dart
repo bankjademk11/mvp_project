@@ -479,8 +479,12 @@ class AuthService {
       if (province != null) profileData['province'] = province;
       if (skills != null) profileData['skills'] = skills;
       if (bio != null) profileData['bio'] = bio;
-      if (resumeUrl != null) profileData['resumeUrl'] = resumeUrl;
-      if (avatarUrl != null) profileData['avatarUrl'] = avatarUrl;
+
+      // Always include resumeUrl and avatarUrl if they are provided in the function call,
+      // even if their value is null, to allow clearing them in Appwrite.
+      profileData['resumeUrl'] = resumeUrl; // Always include if passed
+      profileData['avatarUrl'] = avatarUrl; // Always include if passed
+
       if (companyName != null) profileData['companyName'] = companyName;
       if (companySize != null) profileData['companySize'] = companySize;
       if (industry != null) profileData['industry'] = industry;
@@ -777,6 +781,43 @@ class AuthNotifier extends StateNotifier<AuthState> {
         errorMessage = e.toString().replaceAll('Exception: ', '');
       }
       
+      state = state.copyWith(
+        isLoading: false,
+        error: errorMessage,
+      );
+    }
+  }
+
+  Future<void> updateCurrentUserResume(String? newResumeUrl) async {
+    if (state.user == null) {
+      state = state.copyWith(error: 'User not authenticated');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final updatedUser = await _authService.updateUserProfile(
+        userId: state.user!.uid,
+        resumeUrl: newResumeUrl,
+      );
+
+      state = state.copyWith(
+        user: updatedUser,
+        isLoading: false,
+        error: null,
+      );
+    } catch (e) {
+      String errorMessage;
+      if (e.toString().contains('rate_limit_exceeded')) {
+        errorMessage = 'ระบบถูกใช้งานมากเกินไป กรุณาลองใหม่อีกครั้ง';
+      } else if (e.toString().contains('session_expired')) {
+        errorMessage = 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
+        state = const AuthState();
+      } else {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
+
       state = state.copyWith(
         isLoading: false,
         error: errorMessage,

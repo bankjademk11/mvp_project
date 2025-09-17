@@ -84,7 +84,7 @@ class FileUploadWidget extends ConsumerStatefulWidget {
   final String uploadButtonText;
   final Function(String?) onFileUploaded;
   final bool isDocument;
-  
+
   const FileUploadWidget({
     super.key,
     required this.title,
@@ -104,27 +104,21 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
   double _uploadProgress = 0.0;
 
   Future<void> _handleUpload() async {
-    // Use file_picker to get the actual file
     FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: widget.isDocument ? FileType.custom : FileType.image, // Custom for documents (like PDF), image for profile pictures
-      allowedExtensions: widget.isDocument ? ['pdf', 'doc', 'docx'] : ['jpg', 'jpeg', 'png'], // Specify allowed extensions
+      type: widget.isDocument ? FileType.custom : FileType.image,
+      allowedExtensions: widget.isDocument ? ['pdf', 'doc', 'docx'] : ['jpg', 'jpeg', 'png'],
     );
 
     if (result == null || result.files.isEmpty) {
-      // User canceled the picker or no file selected
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No file selected.')),
+          const SnackBar(content: Text('No file selected.')),
         );
       }
       return;
     }
 
-    // Get the picked file
     PlatformFile pickedFile = result.files.first;
-
-    // Create Appwrite InputFile from bytes for web compatibility
     final file = appwrite.InputFile.fromBytes(
       bytes: pickedFile.bytes!,
       filename: pickedFile.name,
@@ -136,32 +130,33 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
     });
 
     try {
-      // Get Appwrite service
       final appwriteService = ref.read(appwriteServiceProvider);
       final fileUploadService = FileUploadService(appwriteService);
-
       String? fileUrl;
       if (widget.isDocument) {
         fileUrl = await fileUploadService.uploadResume(file);
       } else {
         fileUrl = await fileUploadService.uploadProfilePicture(file);
       }
-
       widget.onFileUploaded(fileUrl);
 
       if (mounted) {
+        final languageState = ref.read(languageProvider);
+        final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('อัปโหลด${widget.title}สำเร็จแล้ว!'),
+            content: Text('${t('file_uploaded_successfully').replaceFirst('{file}', widget.title)}'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final languageState = ref.read(languageProvider);
+        final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('เกิดข้อผิดพลาดในการอัปโหลด: $e'),
+            content: Text('${t('error_uploading_file')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -178,45 +173,46 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
 
   Future<void> _handleDelete() async {
     if (widget.currentFileUrl == null) return;
-    
-    // Extract file ID and bucket ID from URL
+
     final uri = Uri.parse(widget.currentFileUrl!);
     final pathSegments = uri.pathSegments;
-    final bucketId = pathSegments[pathSegments.length - 3];
-    final fileId = pathSegments[pathSegments.length - 2]; // Adjust based on actual URL structure
-    
+    if (pathSegments.length < 4) return;
+    final bucketId = pathSegments[pathSegments.length - 4];
+    final fileId = pathSegments[pathSegments.length - 2];
+
+    final languageState = ref.read(languageProvider);
+    final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('ลบ${widget.title}'),
-        content: Text('ท่านต้องการลบ${widget.title}นี้ບໍ?'),
+        title: Text('${t('delete')} ${widget.title}'),
+        content: Text('${t('delete_confirm_message')} ${widget.title}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('ຍົກເລີກ'),
+            child: Text(t('cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('ລົບ'),
+            child: Text(t('delete')),
           ),
         ],
       ),
     );
-    
+
     if (confirmed == true) {
       try {
-        // Get Appwrite service
         final appwriteService = ref.read(appwriteServiceProvider);
         final fileUploadService = FileUploadService(appwriteService);
-        
-        await fileUploadService.deleteFile(bucketId, fileId); // ส่ง bucketId ด้วย
+        await fileUploadService.deleteFile(bucketId, fileId);
         widget.onFileUploaded(null);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('ລົບ${widget.title}ສຳເລັດແລ້ວ'),
+              content: Text('${widget.title} ${t('deleted_successfully')}'),
               backgroundColor: Colors.green,
             ),
           );
@@ -225,7 +221,27 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('ເກີດຂໍ້ຜิดພາດໃນການລบໄຟລ໌: $e'),
+              content: Text('${t('error_deleting_file')}: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleView() async {
+    final languageState = ref.read(languageProvider);
+    final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
+    if (widget.currentFileUrl != null) {
+      final uri = Uri.parse(widget.currentFileUrl!);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(t('could_not_open_file')),
               backgroundColor: Colors.red,
             ),
           );
@@ -236,8 +252,10 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final languageState = ref.watch(languageProvider);
+    final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
     final hasFile = widget.currentFileUrl != null && widget.currentFileUrl!.isNotEmpty;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -252,22 +270,18 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
           Icon(
             hasFile ? Icons.check_circle : widget.icon,
             size: 40,
-            color: hasFile 
-                ? Colors.green 
-                : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            color: hasFile ? Colors.green : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
           ),
           const SizedBox(height: 8),
           Text(
-            hasFile 
-                ? 'มี${widget.title}ແລ້ວ' 
-                : 'ຍັງບໍ່ໄດ້อัปโหลด${widget.title}',
+            hasFile ? t('file_uploaded').replaceFirst('{file}', widget.title) : t('no_file_uploaded').replaceFirst('{file}', widget.title),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             ),
+            textAlign: TextAlign.center,
           ),
-          
-          if (_isUploading) ...{
-            const SizedBox(height: 12),
+          const SizedBox(height: 12),
+          if (_isUploading) ...[
             LinearProgressIndicator(
               value: _uploadProgress,
               backgroundColor: Colors.grey.withOpacity(0.3),
@@ -277,36 +291,55 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
             ),
             const SizedBox(height: 8),
             Text(
-              'กําลังอัปโหลด... ${(_uploadProgress * 100).toInt()}%',
+              '${t('uploading')}... ${(_uploadProgress * 100).toInt()}%',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          } else ...{
-            const SizedBox(height: 12),
-            Row(
+          ] else if (hasFile) ...[
+            // Buttons for when a file exists
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _handleUpload,
-                    icon: Icon(hasFile ? Icons.refresh : Icons.upload_file),
-                    label: Text(
-                      hasFile ? 'อัปเดต${widget.title}' : widget.uploadButtonText,
-                    ),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: _handleView,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: Text(t('view_file').replaceFirst('{file}', widget.title)),
                 ),
-                if (hasFile) ...{
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: _handleDelete,
-                    icon: const Icon(Icons.delete_outline),
-                    style: IconButton.styleFrom(
-                      foregroundColor: Colors.red,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _handleUpload,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: Text(t('replace_file')),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
                     ),
-                    tooltip: 'ลบไฟล์',
-                  ),
-                },
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _handleDelete,
+                        icon: const Icon(Icons.delete_outline, size: 16),
+                        label: Text(t('delete')),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-            ),
-          },
+            )
+          ] else ...[
+            // Button for when no file exists
+            ElevatedButton.icon(
+              onPressed: _handleUpload,
+              icon: const Icon(Icons.upload_file),
+              label: Text(widget.uploadButtonText),
+            )
+          ],
         ],
       ),
     );

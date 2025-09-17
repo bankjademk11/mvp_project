@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart'; // Add this import back
 import '../../services/auth_service.dart';
 import '../../common/widgets/language_switcher.dart';
+import '../../services/file_upload_service.dart'; // Added for FileUploadWidget
+import '../../services/language_service.dart'; // Added for AppLocalizations
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -39,6 +41,10 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
+
+    // Add this line for translation
+    final languageState = ref.watch(languageProvider);
+    final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
     
     // If user is not loaded, show loading indicator
     if (user == null) {
@@ -266,87 +272,25 @@ class ProfilePage extends ConsumerWidget {
             // Resume Section
             _buildInfoSection(
               context,
-              title: 'ເອກະສານ ແລະ ເລຊູເມ',
+              title: t('documents'),
               icon: Icons.description,
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.file_present_outlined,
-                              size: 40,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              user.resumeUrl != null && user.resumeUrl.toString().isNotEmpty
-                                  ? 'ມີໄຟລ໌ເລຊູເມແລ້ວ'
-                                  : 'ຍັງບໍ່ໄດ້ອັບໂຫລດເລຊູເມ',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  if (user.resumeUrl != null && user.resumeUrl.toString().isNotEmpty) {
-                                    // If resume URL exists, open it in external browser
-                                    final Uri url = Uri.parse(user.resumeUrl.toString());
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(url, mode: LaunchMode.externalApplication);
-                                    } else {
-                                      // Show error message if cannot open URL
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('ບໍ່ສາມາດເປີດໄຟລ໌ເລຊູເມໄດ້'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  } else {
-                                    // If no resume URL, show the message about future feature
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('ຟີເຈີອັບໂຫລດໄຟລ໌ຈະຖືກເພີ່ມໃນເວີຊັນຕໍ່ໄປ'),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: Icon(
-                                  user.resumeUrl != null && user.resumeUrl.toString().isNotEmpty
-                                      ? Icons.refresh
-                                      : Icons.upload_file,
-                                ),
-                                label: Text(
-                                  user.resumeUrl != null && user.resumeUrl.toString().isNotEmpty
-                                      ? 'ອັບເດດເລຊູເມ'
-                                      : 'ອັບໂຫລດເລຊູເມ',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  child: FileUploadWidget(
+                    title: t('resume'),
+                    currentFileUrl: user.resumeUrl,
+                    icon: Icons.description_outlined,
+                    uploadButtonText: t('upload_cv'),
+                    onFileUploaded: (url) async {
+                      // Update the user's resumeUrl in the authProvider
+                      await ref.read(authProvider.notifier).updateCurrentUserResume(url);
+                      // Check if the widget is still mounted before proceeding
+                      if (!context.mounted) return;
+                      // Force refresh current user data to ensure UI is up-to-date
+                      await ref.read(authProvider.notifier).forceRefreshCurrentUser();
+                    },
+                    isDocument: true,
                   ),
                 ),
               ],
