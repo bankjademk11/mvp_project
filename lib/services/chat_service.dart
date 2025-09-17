@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'mock_api.dart';
+import 'package:appwrite/appwrite.dart';
+import 'package:appwrite/models.dart' as appwrite_models;
+import 'appwrite_service.dart';
+import '../models/user.dart';
+import 'auth_service.dart';
 
 // Chat message model
 class ChatMessage {
@@ -94,7 +98,7 @@ class ChatConversation {
   final String chatId;
   final String withUserId;
   final String withName;
-  final String? withAvatar;
+  final String? withAvatarUrl; // Changed from withAvatar
   final ChatMessage? lastMessage;
   final int unreadCount;
   final DateTime? lastActivity;
@@ -104,7 +108,7 @@ class ChatConversation {
     required this.chatId,
     required this.withUserId,
     required this.withName,
-    this.withAvatar,
+    this.withAvatarUrl,
     this.lastMessage,
     this.unreadCount = 0,
     this.lastActivity,
@@ -116,7 +120,7 @@ class ChatConversation {
       chatId: json['chatId'] ?? '',
       withUserId: json['withUserId'] ?? '',
       withName: json['withName'] ?? '',
-      withAvatar: json['withAvatar'],
+      withAvatarUrl: json['withAvatarUrl'], // Changed from withAvatar
       lastMessage: json['lastMessage'] != null 
           ? ChatMessage.fromJson(json['lastMessage'])
           : null,
@@ -160,55 +164,115 @@ class ChatState {
 
 // Chat service
 class ChatService extends StateNotifier<ChatState> {
-  ChatService() : super(const ChatState()) {
+  final Ref ref;
+  
+  ChatService(this.ref) : super(const ChatState()) {
     loadConversations();
   }
 
   Future<void> loadConversations() async {
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, error: null);
     
     try {
-      final data = await MockApi.loadChats();
-      final chatList = (data['chats'] as List).cast<Map<String, dynamic>>();
+      final appwriteService = ref.read(appwriteServiceProvider);
+      final authService = ref.read(authServiceProvider);
+      final currentUser = ref.read(authProvider).user;
       
-      final conversations = chatList.map((chat) {
-        final messages = (chat['messages'] as List)
-            .cast<Map<String, dynamic>>()
-            .map((m) => ChatMessage.fromJson(m))
-            .toList();
-        
-        final lastMessage = messages.isNotEmpty ? messages.last : null;
-        
-        return ChatConversation(
-          chatId: chat['chatId'],
-          withUserId: chat['withUserId'],
-          withName: chat['withName'],
-          withAvatar: chat['withAvatar'],
-          lastMessage: lastMessage,
-          unreadCount: chat['unreadCount'] ?? 0,
-          lastActivity: lastMessage?.timestamp,
-          isOnline: chat['isOnline'] ?? false,
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      // Query for chats where the user is either participant
+      final response1 = await appwriteService.databases.listDocuments(
+        databaseId: '68bbb9e6003188d8686f',
+        collectionId: 'chats',
+        queries: [Query.equal('participant1Id', currentUser.uid)],
+      );
+      
+      final response2 = await appwriteService.databases.listDocuments(
+        databaseId: '68bbb9e6003188d8686f',
+        collectionId: 'chats',
+        queries: [Query.equal('participant2Id', currentUser.uid)],
+      );
+
+      final allDocuments = [...response1.documents, ...response2.documents];
+      final uniqueDocuments = { for (var doc in allDocuments) doc.$id : doc }.values.toList();
+
+      final conversations = <ChatConversation>[];
+      
+      for (var doc in uniqueDocuments) {
+        final otherUserId = doc.data['participant1Id'] == currentUser.uid 
+            ? doc.data['participant2Id'] as String
+            : doc.data['participant1Id'] as String;
+
+        // Fetch the full profile of the other user
+        final partnerProfile = await authService.getUserProfile(otherUserId);
+
+        if (partnerProfile == null) {
+          // Skip this conversation if the other user's profile can't be fetched
+          continue;
+        }
+
+        // Determine the correct name and avatar for the conversation list
+        String conversationName;
+        String? conversationAvatarUrl;
+
+        if (currentUser.role == 'employer') {
+          // If I am an employer, the other person must be a seeker
+          conversationName = partnerProfile.displayName;
+          conversationAvatarUrl = partnerProfile.avatarUrl;
+        } else {
+          // If I am a seeker, the other person must be an employer
+          conversationName = partnerProfile.companyName ?? partnerProfile.displayName;
+          conversationAvatarUrl = partnerProfile.companyLogoUrl;
+        }
+
+        // Get the latest message for this chat
+        final messagesResponse = await appwriteService.databases.listDocuments(
+          databaseId: '68bbb9e6003188d8686f',
+          collectionId: 'messages',
+          queries: [
+            Query.equal('chatId', doc.$id),
+            Query.orderDesc('\$createdAt'),
+            Query.limit(1),
+          ],
         );
-      }).toList();
+        
+        ChatMessage? lastMessage;
+        if (messagesResponse.documents.isNotEmpty) {
+          final messageDoc = messagesResponse.documents.first;
+          lastMessage = ChatMessage.fromJson({
+            ...messageDoc.data,
+            'id': messageDoc.$id,
+            'createdAt': messageDoc.$createdAt,
+          });
+        }
+        
+        conversations.add(ChatConversation(
+          chatId: doc.$id,
+          withUserId: otherUserId,
+          withName: conversationName,
+          withAvatarUrl: conversationAvatarUrl,
+          lastMessage: lastMessage,
+          unreadCount: 0, // TODO: Implement unread count logic
+          lastActivity: lastMessage?.timestamp ?? DateTime.parse(doc.$updatedAt),
+          isOnline: false, // TODO: Implement online status
+        ));
+      }
       
       // Sort by last activity
-      conversations.sort((a, b) {
-        final aTime = a.lastActivity ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bTime = b.lastActivity ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bTime.compareTo(aTime);
-      });
+      conversations.sort((a, b) => (b.lastActivity ?? DateTime(1970)).compareTo(a.lastActivity ?? DateTime(1970)));
       
-      final totalUnread = conversations.fold<int>(
-        0, 
-        (sum, conv) => sum + conv.unreadCount,
-      );
+      final totalUnread = conversations.fold<int>(0, (sum, conv) => sum + conv.unreadCount);
       
       state = state.copyWith(
         conversations: conversations,
         isLoading: false,
         totalUnreadCount: totalUnread,
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      print('Error loading conversations: $error');
+      print(stackTrace);
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -216,32 +280,181 @@ class ChatService extends StateNotifier<ChatState> {
     }
   }
 
-  Future<void> markAsRead(String chatId) async {
-    final updatedConversations = state.conversations.map((conv) {
-      if (conv.chatId == chatId) {
-        return ChatConversation(
-          chatId: conv.chatId,
-          withUserId: conv.withUserId,
-          withName: conv.withName,
-          withAvatar: conv.withAvatar,
-          lastMessage: conv.lastMessage?.copyWith(isRead: true),
-          unreadCount: 0,
-          lastActivity: conv.lastActivity,
-          isOnline: conv.isOnline,
-        );
+  Future<String> createChat(String participantId, String participantName) async {
+    try {
+      final appwriteService = ref.read(appwriteServiceProvider);
+      final user = ref.read(authProvider).user;
+      
+      if (user == null) {
+        throw Exception('User not authenticated');
       }
-      return conv;
-    }).toList();
-    
-    final totalUnread = updatedConversations.fold<int>(
-      0, 
-      (sum, conv) => sum + conv.unreadCount,
-    );
-    
-    state = state.copyWith(
-      conversations: updatedConversations,
-      totalUnreadCount: totalUnread,
-    );
+      
+      // Check if chat already exists
+      final existingChats = await appwriteService.databases.listDocuments(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'chats',
+        queries: [
+          Query.equal('participant1Id', user.uid),
+          Query.equal('participant2Id', participantId),
+        ],
+      );
+      
+      if (existingChats.total > 0) {
+        return existingChats.documents.first.$id;
+      }
+      
+      final now = DateTime.now().toIso8601String();
+      
+      // Create new chat
+      final response = await appwriteService.databases.createDocument(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'chats',
+        documentId: ID.unique(),
+        data: {
+          'participant1Id': user.uid,
+          'participant1Name': user.displayName,
+          'participant2Id': participantId,
+          'participant2Name': participantName,
+          'createdAt': now, // Add the createdAt attribute
+          'updatedAt': now, // Add the updatedAt attribute
+        },
+      );
+      
+      return response.$id;
+    } catch (error) {
+      throw Exception('Failed to create chat: $error');
+    }
+  }
+
+  Future<void> sendMessage(String chatId, String text, {MessageType type = MessageType.text}) async {
+    try {
+      final appwriteService = ref.read(appwriteServiceProvider);
+      final user = ref.read(authProvider).user;
+      
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      await appwriteService.databases.createDocument(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'messages',
+        documentId: ID.unique(),
+        data: {
+          'chatId': chatId,
+          'senderId': user.uid,
+          'senderName': user.displayName ?? 'Unknown User',
+          'text': text,
+          'type': type.name, // Add the type attribute
+          'status': 'sent', // Add the status attribute
+          'isRead': false, // Add the isRead attribute
+          'createdAt': DateTime.now().toIso8601String(), // Add the createdAt attribute
+        },
+      );
+      
+      
+      
+      // Create a simple message object for updating local state
+      final message = ChatMessage(
+        id: ID.unique(),
+        senderId: user.uid,
+        senderName: user.displayName ?? 'Unknown User',
+        text: text,
+        timestamp: DateTime.now(),
+        type: type,
+        status: MessageStatus.sent,
+      );
+      
+      // Update local state
+      updateLastMessage(chatId, message);
+    } catch (error) {
+      print('Detailed error in sendMessage: $error');
+      // Re-throw with more context
+      throw Exception('Failed to send message: ${error.toString()}');
+    }
+  }
+
+  Future<List<ChatMessage>> loadMessages(String chatId) async {
+    try {
+      final appwriteService = ref.read(appwriteServiceProvider);
+      
+      final response = await appwriteService.databases.listDocuments(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'messages',
+        queries: [
+          Query.equal('chatId', chatId),
+          Query.orderDesc('\$createdAt'),
+        ],
+      );
+      
+      final messages = response.documents.map((doc) {
+        return ChatMessage(
+          id: doc.$id,
+          senderId: doc.data['senderId'] as String? ?? '',
+          senderName: doc.data['senderName'] as String? ?? 'Unknown User',
+          text: doc.data['text'] as String? ?? '',
+          timestamp: DateTime.parse(doc.$createdAt),
+          isRead: doc.data['isRead'] as bool? ?? false,
+          // Handle the type attribute
+          type: MessageType.values.firstWhere(
+            (e) => e.name == (doc.data['type'] as String? ?? 'text'),
+            orElse: () => MessageType.text,
+          ),
+          // Handle the status attribute
+          status: MessageStatus.values.firstWhere(
+            (e) => e.name == (doc.data['status'] as String? ?? 'sent'),
+            orElse: () => MessageStatus.sent,
+          ),
+        );
+      }).toList();
+      
+      return messages;
+    } catch (error) {
+      throw Exception('Failed to load messages: $error');
+    }
+  }
+
+  Future<void> markAsRead(String chatId) async {
+    try {
+      final appwriteService = ref.read(appwriteServiceProvider);
+      
+      // Update all unread messages in this chat to read
+      // Note: This is a simplified implementation. In a real app, you might want to 
+      // update messages in batches or use a more efficient approach.
+      
+      // First, get the current user
+      final user = ref.read(authProvider).user;
+      if (user == null) return;
+      
+      // Update local state
+      final updatedConversations = state.conversations.map((conv) {
+        if (conv.chatId == chatId) {
+          return ChatConversation(
+            chatId: conv.chatId,
+            withUserId: conv.withUserId,
+            withName: conv.withName,
+            withAvatarUrl: conv.withAvatarUrl,
+            lastMessage: conv.lastMessage?.copyWith(isRead: true),
+            unreadCount: 0,
+            lastActivity: conv.lastActivity,
+            isOnline: conv.isOnline,
+          );
+        }
+        return conv;
+      }).toList();
+      
+      final totalUnread = updatedConversations.fold<int>(
+        0, 
+        (sum, conv) => sum + conv.unreadCount,
+      );
+      
+      state = state.copyWith(
+        conversations: updatedConversations,
+        totalUnreadCount: totalUnread,
+      );
+    } catch (error) {
+      // Handle error silently for now, but in a real app you might want to show an error message
+      print('Failed to mark messages as read: $error');
+    }
   }
 
   Future<void> updateLastMessage(String chatId, ChatMessage message) async {
@@ -251,7 +464,7 @@ class ChatService extends StateNotifier<ChatState> {
           chatId: conv.chatId,
           withUserId: conv.withUserId,
           withName: conv.withName,
-          withAvatar: conv.withAvatar,
+          withAvatarUrl: conv.withAvatarUrl,
           lastMessage: message,
           unreadCount: message.senderId != 'me' ? conv.unreadCount + 1 : conv.unreadCount,
           lastActivity: message.timestamp,
@@ -280,19 +493,51 @@ class ChatService extends StateNotifier<ChatState> {
   }
 
   Future<void> deleteConversation(String chatId) async {
-    final updatedConversations = state.conversations
-        .where((conv) => conv.chatId != chatId)
-        .toList();
-    
-    final totalUnread = updatedConversations.fold<int>(
-      0, 
-      (sum, conv) => sum + conv.unreadCount,
-    );
-    
-    state = state.copyWith(
-      conversations: updatedConversations,
-      totalUnreadCount: totalUnread,
-    );
+    try {
+      final appwriteService = ref.read(appwriteServiceProvider);
+      
+      // Delete all messages in the chat first
+      final messagesResponse = await appwriteService.databases.listDocuments(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'messages',
+        queries: [
+          Query.equal('chatId', chatId),
+        ],
+      );
+      
+      // Delete messages (in a real app, you might want to do this in batches)
+      for (var message in messagesResponse.documents) {
+        await appwriteService.databases.deleteDocument(
+          databaseId: '68bbb9e6003188d8686f', // mvpDB
+          collectionId: 'messages',
+          documentId: message.$id,
+        );
+      }
+      
+      // Delete the chat
+      await appwriteService.databases.deleteDocument(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'chats',
+        documentId: chatId,
+      );
+      
+      // Update local state
+      final updatedConversations = state.conversations
+          .where((conv) => conv.chatId != chatId)
+          .toList();
+      
+      final totalUnread = updatedConversations.fold<int>(
+        0, 
+        (sum, conv) => sum + conv.unreadCount,
+      );
+      
+      state = state.copyWith(
+        conversations: updatedConversations,
+        totalUnreadCount: totalUnread,
+      );
+    } catch (error) {
+      throw Exception('Failed to delete conversation: $error');
+    }
   }
 
   void updateOnlineStatus(String userId, bool isOnline) {
@@ -302,7 +547,7 @@ class ChatService extends StateNotifier<ChatState> {
           chatId: conv.chatId,
           withUserId: conv.withUserId,
           withName: conv.withName,
-          withAvatar: conv.withAvatar,
+          withAvatarUrl: conv.withAvatarUrl,
           lastMessage: conv.lastMessage,
           unreadCount: conv.unreadCount,
           lastActivity: conv.lastActivity,
@@ -322,7 +567,7 @@ class ChatService extends StateNotifier<ChatState> {
 
 // Providers
 final chatServiceProvider = StateNotifierProvider<ChatService, ChatState>(
-  (ref) => ChatService(),
+  (ref) => ChatService(ref),
 );
 
 // Individual chat room state
@@ -333,6 +578,7 @@ class ChatRoomState {
   final String? chatPartner;
   final bool isTyping;
   final bool isOnline;
+  final String? chatPartnerAvatarUrl;
 
   const ChatRoomState({
     this.messages = const [],
@@ -341,6 +587,7 @@ class ChatRoomState {
     this.chatPartner,
     this.isTyping = false,
     this.isOnline = false,
+    this.chatPartnerAvatarUrl,
   });
 
   ChatRoomState copyWith({
@@ -350,6 +597,7 @@ class ChatRoomState {
     String? chatPartner,
     bool? isTyping,
     bool? isOnline,
+    String? chatPartnerAvatarUrl,
   }) {
     return ChatRoomState(
       messages: messages ?? this.messages,
@@ -358,6 +606,7 @@ class ChatRoomState {
       chatPartner: chatPartner ?? this.chatPartner,
       isTyping: isTyping ?? this.isTyping,
       isOnline: isOnline ?? this.isOnline,
+      chatPartnerAvatarUrl: chatPartnerAvatarUrl ?? this.chatPartnerAvatarUrl,
     );
   }
 }
@@ -372,34 +621,70 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
   }
 
   Future<void> _loadMessages() async {
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, error: null);
     
     try {
-      final data = await MockApi.loadChats();
-      final chats = (data['chats'] as List).cast<Map<String, dynamic>>();
-      final chat = chats.firstWhere(
-        (e) => e['chatId'] == chatId,
-        orElse: () => {},
+      final chatService = ref.read(chatServiceProvider.notifier);
+      final messages = await chatService.loadMessages(chatId);
+      
+      // Get chat partner details
+      final chatState = ref.read(chatServiceProvider);
+      ChatConversation? conversation;
+      try {
+        conversation = chatState.conversations.firstWhere((c) => c.chatId == chatId);
+      } catch (e) {
+        // Handle case where conversation is not in the list (e.g., deep link)
+        print('Conversation not found in list, fetching details...');
+      }
+
+      String? otherUserId;
+      if (conversation != null) {
+        otherUserId = conversation.withUserId;
+      } else {
+        // Fallback: get partner ID from the chat document itself
+        final appwriteService = ref.read(appwriteServiceProvider);
+        final chatDoc = await appwriteService.databases.getDocument(
+          databaseId: '68bbb9e6003188d8686f',
+          collectionId: 'chats',
+          documentId: chatId,
+        );
+        final currentUser = ref.read(authProvider).user;
+        if (currentUser != null) {
+           otherUserId = chatDoc.data['participant1Id'] == currentUser.uid
+              ? chatDoc.data['participant2Id'] as String
+              : chatDoc.data['participant1Id'] as String;
+        }
+      }
+
+      String partnerName = 'Unknown User';
+      String? partnerAvatarUrl;
+
+      if (otherUserId != null) {
+        final authService = ref.read(authServiceProvider);
+                final partnerProfile = await authService.getUserProfile(otherUserId);
+        if (partnerProfile != null) {
+          if (partnerProfile.role == 'employer') {
+            partnerName = partnerProfile.companyName ?? partnerProfile.displayName ?? 'Unknown Company';
+            partnerAvatarUrl = partnerProfile.companyLogoUrl;
+          } else {
+            partnerName = partnerProfile.displayName ?? 'Unknown User';
+            partnerAvatarUrl = partnerProfile.avatarUrl;
+          }
+        }
+      }
+      
+      state = state.copyWith(
+        messages: messages.reversed.toList(),
+        isLoading: false,
+        chatPartner: partnerName,
+        chatPartnerAvatarUrl: partnerAvatarUrl,
+        isOnline: conversation?.isOnline ?? false,
       );
       
-      if (chat.isNotEmpty) {
-        final messages = (chat['messages'] as List)
-            .cast<Map<String, dynamic>>()
-            .map((m) => ChatMessage.fromJson(m))
-            .toList()
-            .reversed
-            .toList();
-        
-        state = state.copyWith(
-          messages: messages,
-          isLoading: false,
-          chatPartner: chat['withName'],
-          isOnline: chat['isOnline'] ?? false,
-        );
-        
-        // Mark as read in chat service
+      if (conversation != null) {
         ref.read(chatServiceProvider.notifier).markAsRead(chatId);
       }
+
     } catch (error) {
       state = state.copyWith(
         isLoading: false,
@@ -410,77 +695,57 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
 
   Future<void> sendMessage(String text, {MessageType type = MessageType.text}) async {
     if (text.trim().isEmpty) return;
-    
-    final message = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      senderId: 'me',
-      senderName: 'Me',
-      text: text.trim(),
+
+    final user = ref.read(authProvider).user;
+    if (user == null) {
+      state = state.copyWith(error: 'User not authenticated');
+      return;
+    }
+
+    // 1. Optimistic UI: Create a message and add it to the state immediately.
+    final optimisticMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(), // Temporary local ID
+      senderId: user.uid,
+      senderName: user.displayName ?? 'Unknown User',
+      text: text,
       timestamp: DateTime.now(),
       type: type,
-      status: MessageStatus.sending,
+      status: MessageStatus.sending, // Show as 'sending'
     );
-    
-    // Add message immediately for better UX
-    state = state.copyWith(
-      messages: [message, ...state.messages],
-    );
-    
-    // Update chat service with new message
-    ref.read(chatServiceProvider.notifier).updateLastMessage(chatId, message);
-    
-    // Simulate sending delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Update message status to sent
-    final updatedMessages = state.messages.map((m) {
-      return m.id == message.id ? m.copyWith(status: MessageStatus.sent) : m;
-    }).toList();
-    
-    state = state.copyWith(messages: updatedMessages);
-    
-    // Simulate auto-reply after 2 seconds
-    _simulateAutoReply();
-  }
 
-  void _simulateAutoReply() {
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      
-      // Show typing indicator
-      state = state.copyWith(isTyping: true);
-      
-      Future.delayed(const Duration(seconds: 1), () {
-        if (!mounted) return;
-        
-        final replies = [
-          'ຂອບໃຈເຈົ້າ ພວກເຮົາຈະຕິດຕໍ່ກັບຄືນໃນໄວໆນີ້',
-          'ຂໍຄວາມສະດວກໃນການສັມພາດໜ້ອຍເຈົ້າ',
-          'ພວກເຮົາສາມາດນັດເວລາສັມພາດໄດ້ບໍເຈົ້າ?',
-          'ຂໍໃຫ້ສົ່ງ Resume ມາດ້ວຍນະເຈົ້າ',
-          'ສະບາຍດີເຈົ້າ ຍິນດີຕ້ອນຮັບ',
-          'ຂອບໃຈທີ່ສົນໃຈຕໍາແໜ່ງງານຂອງພວກເຮົາ',
-        ];
-        
-        final reply = replies[DateTime.now().millisecond % replies.length];
-        final replyMessage = ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderId: 'hr',
-          senderName: state.chatPartner ?? 'HR',
-          text: reply,
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-        );
-        
-        state = state.copyWith(
-          messages: [replyMessage, ...state.messages],
-          isTyping: false,
-        );
-        
-        // Update chat service
-        ref.read(chatServiceProvider.notifier).updateLastMessage(chatId, replyMessage);
-      });
-    });
+    // The UI list is reversed, so add new messages to the beginning.
+    state = state.copyWith(messages: [optimisticMessage, ...state.messages], error: null);
+
+    try {
+      final chatService = ref.read(chatServiceProvider.notifier);
+      // 2. Send the message to the backend in the background.
+      await chatService.sendMessage(chatId, text, type: type);
+
+      // 3. On success, update the message from 'sending' to 'sent'.
+      final updatedMessages = state.messages.map((m) {
+        if (m.id == optimisticMessage.id) {
+          // We don't have the real server ID, so we just update the status.
+          // This is a limitation of the current backend implementation.
+          return m.copyWith(status: MessageStatus.sent);
+        }
+        return m;
+      }).toList();
+      state = state.copyWith(messages: updatedMessages);
+
+    } catch (error) {
+      // 4. On failure, update the message to 'failed'.
+      print('Error sending message: $error');
+      final updatedMessages = state.messages.map((m) {
+        if (m.id == optimisticMessage.id) {
+          return m.copyWith(status: MessageStatus.failed);
+        }
+        return m;
+      }).toList();
+      state = state.copyWith(
+        messages: updatedMessages,
+        error: 'Failed to send message. Please try again.',
+      );
+    }
   }
 
   void simulateTyping() {
