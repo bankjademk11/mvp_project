@@ -559,42 +559,6 @@ class AuthService {
       teamId: profileDocument?.data['teamId'] as String?, // Add this
     );
   }
-
-  // Method to get a specific user's profile
-  Future<User?> getUserProfile(String userId) async {
-    try {
-      final profileDocument = await _appwriteService.databases.getDocument(
-        databaseId: _databaseId,
-        collectionId: _userProfilesCollectionId,
-        documentId: userId,
-      );
-
-      // We need to construct a User object from the profile document
-      return User(
-        uid: profileDocument.$id,
-        email: profileDocument.data['email'] as String? ?? '',
-        displayName: profileDocument.data['displayName'] as String? ?? 'Unknown User',
-        role: profileDocument.data['role'] as String? ?? 'seeker',
-        phone: profileDocument.data['phone'] as String?,
-        province: profileDocument.data['province'] as String?,
-        skills: List<String>.from(profileDocument.data['skills'] as List? ?? []),
-        bio: profileDocument.data['bio'] as String?,
-        resumeUrl: profileDocument.data['resumeUrl'] as String?,
-        avatarUrl: profileDocument.data['avatarUrl'] as String?,
-        companyName: profileDocument.data['companyName'] as String?,
-        companySize: profileDocument.data['companySize'] as String?,
-        industry: profileDocument.data['industry'] as String?,
-        companyDescription: profileDocument.data['companyDescription'] as String?,
-        website: profileDocument.data['website'] as String?,
-        companyAddress: profileDocument.data['companyAddress'] as String?,
-        companyLogoUrl: profileDocument.data['companyLogoUrl'] as String?,
-        teamId: profileDocument.data['teamId'] as String?,
-      );
-    } catch (e) {
-      print('Error fetching user profile for $userId: $e');
-      return null;
-    }
-  }
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {

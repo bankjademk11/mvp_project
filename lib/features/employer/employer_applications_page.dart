@@ -9,7 +9,6 @@ import '../../services/application_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/application.dart';
 import '../../services/auth_service.dart';
-import '../../services/chat_service.dart'; // Add this import
 
 // NOTE: The FutureProvider was removed as it was causing data consistency issues.
 // We are now using a StatefulWidget with a FutureBuilder for more direct control.
@@ -279,10 +278,6 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                               value: 'reject',
                               child: Row(children: [const Icon(Icons.cancel_outlined, color: Colors.red), const SizedBox(width: 8), Text(t('reject'))]),
                             ),
-                          PopupMenuItem(
-                            value: 'chat',
-                            child: Row(children: [const Icon(Icons.chat_bubble_outline, color: Colors.blue), const SizedBox(width: 8), Text(t('contact_applicant'))]),
-                          ),
                         ],
                         child: const Icon(Icons.more_vert, size: 16),
                       ),
@@ -322,12 +317,6 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     models.Document application,
     Function t,
   ) {
-    // Handle chat action
-    if (action == 'chat') {
-      _startChatWithApplicant(context, application, t);
-      return;
-    }
-    
     ApplicationStatus newStatus;
     switch (action) {
       case 'approve':
@@ -391,33 +380,5 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         ],
       ),
     );
-  }
-
-  void _startChatWithApplicant(BuildContext context, models.Document application, Function t) async {
-    try {
-      // Get the chat service
-      final chatService = ref.read(chatServiceProvider.notifier);
-      
-      // Get applicant info from application data
-      final applicantId = application.data['userId'] as String?;
-      final applicantName = application.data['applicantName'] as String?;
-      
-      if (applicantId == null || applicantName == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to start chat: Applicant information missing')),
-        );
-        return;
-      }
-      
-      // Create or get existing chat
-      final chatId = await chatService.createChat(applicantId, applicantName);
-      
-      // Navigate to chat room
-      context.push('/chats/$chatId');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to start chat: $e')),
-      );
-    }
   }
 }

@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/models.dart' as models;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:go_router/go_router.dart';
 import '../../services/language_service.dart';
 import '../../services/application_service.dart';
 import '../../models/application.dart';
 import '../../services/auth_service.dart';
-import '../../services/chat_service.dart';
 
 class ApplicationDetailPage extends ConsumerWidget {
   final String applicationId;
@@ -386,47 +384,6 @@ class _ApplicationDetailView extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.event),
                 label: Text(t('schedule_interview_action')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () async {
-                  try {
-                    // Get the chat service
-                    final chatService = ref.read(chatServiceProvider.notifier);
-                    
-                    // Get applicant info from application data
-                    final applicantId = application.data['userId'] as String?;
-                    final applicantName = application.data['applicantName'] as String?;
-                    
-                    if (applicantId == null || applicantName == null) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Unable to start chat: Applicant information missing')),
-                        );
-                      }
-                      return;
-                    }
-                    
-                    // Create or get existing chat
-                    final chatId = await chatService.createChat(applicantId, applicantName);
-                    
-                    // Navigate to chat room
-                    if (context.mounted) {
-                      context.push('/chats/$chatId');
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to start chat: $e')),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.chat_bubble),
-                label: Text(t('contact_applicant')),
               ),
             ),
           ],
