@@ -43,7 +43,6 @@ class ChatListPage extends ConsumerWidget {
     // Get translations
     final chatTitle = AppLocalizations.translate('chat', languageCode);
     final searchTooltip = AppLocalizations.translate('search', languageCode);
-    final refreshTooltip = AppLocalizations.translate('refresh', languageCode);
     final loadError = AppLocalizations.translate('error_loading_chats', languageCode);
     final tryAgain = AppLocalizations.translate('try_again', languageCode);
     final noChats = AppLocalizations.translate('no_chats', languageCode);
@@ -89,13 +88,6 @@ class ChatListPage extends ConsumerWidget {
             },
             icon: const Icon(Icons.search),
             tooltip: searchTooltip,
-          ),
-          IconButton(
-            onPressed: () {
-              ref.read(chatServiceProvider.notifier).refresh();
-            },
-            icon: const Icon(Icons.refresh),
-            tooltip: refreshTooltip,
           ),
         ],
       ),
@@ -226,28 +218,24 @@ class ChatListPage extends ConsumerWidget {
                 // Avatar with online status
                 Stack(
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            Theme.of(context).colorScheme.primary,
-                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                          ],
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          conversation.withName.substring(0, 1).toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundImage: (conversation.withAvatarUrl != null && conversation.withAvatarUrl!.isNotEmpty)
+                          ? NetworkImage(conversation.withAvatarUrl!)
+                          : null,
+                      child: (conversation.withAvatarUrl == null || conversation.withAvatarUrl!.isEmpty)
+                          ? Center(
+                              child: Text(
+                                (conversation.withName.isNotEmpty ? conversation.withName : "U").substring(0, 1).toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                     // Online status indicator
                     if (conversation.isOnline)

@@ -27,6 +27,10 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: "^0.13.1" # Added this line
 
+# Add dependencies for bin scripts
+executables:
+  appwrite: ^18.0.0
+
 flutter_launcher_icons: # Added this block
   android: "launcher_icon"
   ios: true

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../services/chat_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/language_service.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
@@ -24,7 +25,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     super.dispose();
   }
 
-  void _handleSubmitted(String text) {
+  Future<void> sendMessage(String text) async {
     _messageController.clear();
     setState(() {
       _isComposing = false;
@@ -33,16 +34,23 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     ref.read(chatRoomServiceProvider(widget.chatId).notifier).sendMessage(text);
   }
 
+  void _handleSubmitted(String text) {
+    if (text.trim().isNotEmpty) {
+      sendMessage(text.trim());
+    }
+  }
+
   String _formatMessageTime(DateTime timestamp, String languageCode) {
+    final localTimestamp = timestamp.toLocal(); // Convert to local time
     final now = DateTime.now();
-    final diff = now.difference(timestamp);
+    final diff = now.difference(localTimestamp);
     
     if (diff.inDays == 0) {
-      return DateFormat('HH:mm').format(timestamp);
+      return DateFormat('HH:mm').format(localTimestamp);
     } else if (diff.inDays == 1) {
-      return '${AppLocalizations.translate('yesterday', languageCode)} ${DateFormat('HH:mm').format(timestamp)}';
+      return '${AppLocalizations.translate('yesterday', languageCode)} ${DateFormat('HH:mm').format(localTimestamp)}';
     } else {
-      return DateFormat('dd/MM HH:mm').format(timestamp);
+      return DateFormat('dd/MM HH:mm').format(localTimestamp);
     }
   }
 
@@ -89,28 +97,24 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         title: Row(
           children: [
-            Container(
-              width: 35,
-              height: 35,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  (chatState.chatPartner ?? 'H').substring(0, 1).toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+            CircleAvatar(
+              radius: 17.5,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundImage: (chatState.chatPartnerAvatarUrl != null && chatState.chatPartnerAvatarUrl!.isNotEmpty)
+                  ? NetworkImage(chatState.chatPartnerAvatarUrl!)
+                  : null,
+              child: (chatState.chatPartnerAvatarUrl == null || chatState.chatPartnerAvatarUrl!.isEmpty)
+                  ? Center(
+                      child: Text(
+                        (chatState.chatPartner ?? 'U').substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -329,7 +333,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   }
 
   Widget _buildMessageBubble(ChatMessage message, String languageCode) {
-    final isMe = message.senderId == 'me';
+    final currentUserId = ref.read(authProvider).user?.uid;
+    final isMe = message.senderId == currentUserId;
     
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
