@@ -162,6 +162,7 @@ class _JobListPageState extends ConsumerState<JobListPage> {
                           'salaryMin': salaryMinValue,
                           'salaryMax': salaryMaxValue,
                           'createdAt': job.data['createdAt'],
+                          'companyLogoUrl': job.data['companyLogoUrl'], // Add companyLogoUrl
                         },
                         onTap: () => context.push('/jobs/${job.$id}'),
                       );

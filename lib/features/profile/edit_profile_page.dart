@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart' as appwrite; // Add this import with alias
+import 'package:file_picker/file_picker.dart'; // Add this import
 import '../../services/auth_service.dart';
 import '../../services/file_upload_service.dart';
 import '../../common/widgets/primary_button.dart';
@@ -141,43 +142,49 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       };
       print('ข้อมูลโปรไฟล์: $profileData');
       
-      print('กำลังส่งข้อมูลไปยัง Appwrite...');
+                    print('กำลังส่งข้อมูลไปยัง Appwrite...');
+                    
+                    // Update display name if it has changed
+                    if (_nameController.text != currentUser.displayName) {
+                      print('กำลังอัปเดตชื่อผู้ใช้...');
+                      await ref.read(authProvider.notifier).updateDisplayName(_nameController.text);
+                      print('อัปเดตชื่อผู้ใช้สำเร็จ');
+                    }
       
-      try {
-        // พยายามอัปเดตเอกสารก่อน
-        await appwriteService.databases.updateDocument(
-          databaseId: '68bbb9e6003188d8686f',
-          collectionId: 'user_profiles',
-          documentId: currentUser.uid,
-          data: profileData,
-        );
-        print('อัปเดตข้อมูลสำเร็จใน Appwrite');
-      } on appwrite.AppwriteException catch (e) {
-        if (e.code == 404) {
-          // ถ้าไม่พบเอกสาร (404) ให้สร้างเอกสารใหม่
-          print('ไม่พบเอกสาร กำลังสร้างเอกสารใหม่...');
-          await appwriteService.databases.createDocument(
-            databaseId: '68bbb9e6003188d8686f',
-            collectionId: 'user_profiles',
-            documentId: currentUser.uid, // ใช้ userId เป็น documentId
-            data: profileData,
-            permissions: [ // เพิ่ม permissions สำหรับเอกสารใหม่
-              appwrite.Permission.read(appwrite.Role.user(currentUser.uid)),
-              appwrite.Permission.update(appwrite.Role.user(currentUser.uid)),
-              appwrite.Permission.delete(appwrite.Role.user(currentUser.uid)),
-            ],
-          );
-          print('สร้างข้อมูลสำเร็จใน Appwrite');
-        } else {
-          // ถ้าเป็น error อื่น ให้ rethrow
-          rethrow;
-        }
-      }
-      
-      // Refresh user data
-      await ref.read(authProvider.notifier).getCurrentUser();
-      print('โหลดข้อมูลผู้ใช้ใหม่แล้ว');
-      
+                    try {
+                      // พยายามอัปเดตเอกสารก่อน
+                      await appwriteService.databases.updateDocument(
+                        databaseId: '68bbb9e6003188d8686f',
+                        collectionId: 'user_profiles',
+                        documentId: currentUser.uid,
+                        data: profileData,
+                      );
+                      print('อัปเดตข้อมูลสำเร็จใน Appwrite');
+                    } on appwrite.AppwriteException catch (e) {
+                      if (e.code == 404) {
+                        // ถ้าไม่พบเอกสาร (404) ให้สร้างเอกสารใหม่
+                        print('ไม่พบเอกสาร กำลังสร้างเอกสารใหม่...');
+                        await appwriteService.databases.createDocument(
+                          databaseId: '68bbb9e6003188d8686f',
+                          collectionId: 'user_profiles',
+                          documentId: currentUser.uid, // ใช้ userId เป็น documentId
+                          data: profileData,
+                          permissions: [ // เพิ่ม permissions สำหรับเอกสารใหม่
+                            appwrite.Permission.read(appwrite.Role.user(currentUser.uid)),
+                            appwrite.Permission.update(appwrite.Role.user(currentUser.uid)),
+                            appwrite.Permission.delete(appwrite.Role.user(currentUser.uid)),
+                          ],
+                        );
+                        print('สร้างข้อมูลสำเร็จใน Appwrite');
+                      } else {
+                        // ถ้าเป็น error อื่น ให้ rethrow
+                        rethrow;
+                      }
+                    }
+                    
+                    // Refresh user data
+                    await ref.read(authProvider.notifier).getCurrentUser();
+                    print('โหลดข้อมูลผู้ใช้ใหม่แล้ว');      
       if (mounted) {
         print('Widget ยัง mounted อยู่ กำลังอัปเดต UI...');
         setState(() {
@@ -219,6 +226,74 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadProfilePicture() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+
+    if (result == null || result.files.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No image selected.')),
+        );
+      }
+      return;
+    }
+
+    PlatformFile pickedFile = result.files.first;
+    final file = appwrite.InputFile.fromBytes(
+      bytes: pickedFile.bytes!,
+      filename: pickedFile.name,
+    );
+
+    setState(() {
+      _isLoading = true; // Use _isLoading for this operation too
+    });
+
+    try {
+      final appwriteService = ref.read(appwriteServiceProvider);
+      final fileUploadService = FileUploadService(appwriteService);
+      String? newImageUrl = await fileUploadService.uploadProfilePicture(file);
+
+      if (newImageUrl != null) {
+        // Update local state
+        setState(() {
+          _profilePictureUrl = newImageUrl;
+        });
+        // Update user profile in database
+        await ref.read(authProvider.notifier).updateUserProfile(avatarUrl: newImageUrl);
+
+        if (mounted) {
+          final languageState = ref.read(languageProvider);
+          final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(t('profile_picture_uploaded_successfully')),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        final languageState = ref.read(languageProvider);
+        final t = (String key) => AppLocalizations.translate(key, languageState.languageCode);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${t('error_uploading_profile_picture')}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -294,49 +369,72 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         children: [
                           Stack(
                             children: [
-                              Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Theme.of(context).colorScheme.primary,
-                                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                                    ],
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
+                              _profilePictureUrl != null && _profilePictureUrl!.isNotEmpty
+                                  ? ClipOval(
+                                      child: Image.network(
+                                        _profilePictureUrl!,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) => Container(
+                                          width: 100,
+                                          height: 100,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              _nameController.text.isNotEmpty
+                                                  ? _nameController.text.substring(0, 1).toUpperCase()
+                                                  : 'U',
+                                              style: const TextStyle(
+                                                fontSize: 40,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 100,
+                                      height: 100,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Theme.of(context).colorScheme.primary,
+                                            Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                                          ],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _nameController.text.isNotEmpty
+                                              ? _nameController.text.substring(0, 1).toUpperCase()
+                                              : 'U',
+                                          style: const TextStyle(
+                                            fontSize: 40,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _nameController.text.isNotEmpty
-                                        ? _nameController.text.substring(0, 1).toUpperCase()
-                                        : 'U',
-                                    style: const TextStyle(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
                               Positioned(
                                 bottom: 0,
                                 right: 0,
                                 child: GestureDetector(
-                                  onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(featureComingSoon),
-                                      ),
-                                    );
-                                  },
+                                  onTap: _pickAndUploadProfilePicture,
                                   child: Container(
                                     width: 30,
                                     height: 30,
@@ -389,7 +487,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             }
                             return null;
                           },
-                          enabled: false, // Name is managed by Appwrite account
+
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -530,21 +628,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           children: [
                             Expanded(
                               child: FileUploadWidget(
-                                title: profilePicture,
-                                currentFileUrl: _profilePictureUrl,
-                                icon: Icons.account_circle_outlined,
-                                uploadButtonText: uploadPicture,
-                                onFileUploaded: (url) {
-                                  setState(() {
-                                    _profilePictureUrl = url;
-                                  });
-                                },
-                                isDocument: false,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: FileUploadWidget(
                                 title: resume,
                                 currentFileUrl: _resumeUrl,
                                 icon: Icons.description_outlined,
@@ -563,10 +646,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
+                            color: Colors.blue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.blue.withValues(alpha: 0.3),
+                              color: Colors.blue.withOpacity(0.3),
                             ),
                           ),
                           child: Row(

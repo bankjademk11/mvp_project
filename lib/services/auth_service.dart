@@ -3,6 +3,7 @@ import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
 import '../models/user.dart';
 import 'appwrite_service.dart';
+import 'chat_service.dart';
 import 'language_service.dart';
 
 // Add rate limiting utility
@@ -528,6 +529,25 @@ class AuthService {
     }
   }
 
+  Future<User?> updateDisplayName(String newDisplayName) async {
+    try {
+      // Update display name in Appwrite account
+      await _appwriteService.account.updateName(name: newDisplayName);
+
+      // Clear cache to force refresh of user data
+      _clearCache();
+
+      // Fetch the updated user to return
+      return await getCurrentUser();
+    } on AppwriteException catch (e) {
+      print('Appwrite error when updating display name: ${e.message}, Code: ${e.code}');
+      throw Exception('Failed to update display name: ${e.message}');
+    } catch (e) {
+      print('Unexpected error when updating display name: $e');
+      throw Exception('Failed to update display name: $e');
+    }
+  }
+
   User _mapAppwriteUserToUser(models.User appwriteUser,
       [models.Document? profileDocument]) {
     // Extract role from preferences, default to 'seeker' if not found
@@ -599,8 +619,9 @@ class AuthService {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
+  final Ref _ref;
 
-  AuthNotifier(this._authService) : super(const AuthState());
+  AuthNotifier(this._authService, this._ref) : super(const AuthState());
 
   Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -669,6 +690,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     state = state.copyWith(isLoading: true);
     await _authService.logout();
+    _ref.invalidate(chatServiceProvider);
     state = const AuthState();
   }
 
@@ -824,6 +846,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> updateDisplayName(String newDisplayName) async {
+    if (state.user == null) {
+      state = state.copyWith(error: 'User not authenticated');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final updatedUser = await _authService.updateDisplayName(newDisplayName);
+      state = state.copyWith(
+        user: updatedUser,
+        isLoading: false,
+        error: null,
+      );
+    } catch (e) {
+      print('Error in updateDisplayName: $e');
+      String errorMessage = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(
+        isLoading: false,
+        error: errorMessage,
+      );
+    }
+  }
+
   Future<void> updateCurrentUserResume(String? newResumeUrl) async {
     if (state.user == null) {
       state = state.copyWith(error: 'User not authenticated');
@@ -873,5 +920,5 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
+  return AuthNotifier(authService, ref);
 });

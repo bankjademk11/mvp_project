@@ -221,10 +221,10 @@ class ChatListPage extends ConsumerWidget {
                     CircleAvatar(
                       radius: 25,
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      backgroundImage: (conversation.withAvatarUrl != null && conversation.withAvatarUrl!.isNotEmpty)
-                          ? NetworkImage(conversation.withAvatarUrl!)
+                      backgroundImage: (conversation.withAvatar != null && conversation.withAvatar!.isNotEmpty)
+                          ? NetworkImage(conversation.withAvatar!)
                           : null,
-                      child: (conversation.withAvatarUrl == null || conversation.withAvatarUrl!.isEmpty)
+                      child: (conversation.withAvatar == null || conversation.withAvatar!.isEmpty)
                           ? Center(
                               child: Text(
                                 (conversation.withName.isNotEmpty ? conversation.withName : "U").substring(0, 1).toUpperCase(),

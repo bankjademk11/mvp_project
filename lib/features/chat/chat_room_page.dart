@@ -195,7 +195,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                         itemCount: chatState.messages.length,
                         itemBuilder: (context, index) {
                           final message = chatState.messages[index];
-                          return _buildMessageBubble(message, languageCode);
+                          return _buildMessageBubble(message, languageCode, chatState.chatPartnerAvatarUrl);
                         },
                       ),
           ),
@@ -332,7 +332,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message, String languageCode) {
+  Widget _buildMessageBubble(ChatMessage message, String languageCode, String? chatPartnerAvatarUrl) {
     final currentUserId = ref.read(authProvider).user?.uid;
     final isMe = message.senderId == currentUserId;
     
@@ -343,28 +343,24 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  message.senderName.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+            CircleAvatar(
+              radius: 15,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundImage: (chatPartnerAvatarUrl != null && chatPartnerAvatarUrl.isNotEmpty)
+                  ? NetworkImage(chatPartnerAvatarUrl)
+                  : null,
+              child: (chatPartnerAvatarUrl == null || chatPartnerAvatarUrl.isEmpty)
+                  ? Center(
+                      child: Text(
+                        (message.senderName.isNotEmpty ? message.senderName : "U").substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 8),
           ],
@@ -386,7 +382,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withOpacity(0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -410,7 +406,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                         _formatMessageTime(message.timestamp, languageCode),
                         style: TextStyle(
                           color: isMe 
-                              ? Colors.white.withValues(alpha: 0.8)
+                              ? Colors.white.withOpacity(0.8)
                               : Colors.grey.shade600,
                           fontSize: 11,
                         ),
@@ -420,7 +416,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                         Icon(
                           _getStatusIcon(message.status!),
                           size: 12,
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: Colors.white.withOpacity(0.8),
                         ),
                       ],
                     ],

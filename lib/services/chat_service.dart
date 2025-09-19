@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart' as appwrite_models;
+import 'package:appwrite/models.dart';
 import 'appwrite_service.dart';
 import '../models/user.dart';
 import 'auth_service.dart';
@@ -98,7 +98,7 @@ class ChatConversation {
   final String chatId;
   final String withUserId;
   final String withName;
-  final String? withAvatarUrl; // Changed from withAvatar
+  final String? withAvatar;
   final ChatMessage? lastMessage;
   final int unreadCount;
   final DateTime? lastActivity;
@@ -108,7 +108,7 @@ class ChatConversation {
     required this.chatId,
     required this.withUserId,
     required this.withName,
-    this.withAvatarUrl,
+    this.withAvatar,
     this.lastMessage,
     this.unreadCount = 0,
     this.lastActivity,
@@ -120,7 +120,7 @@ class ChatConversation {
       chatId: json['chatId'] ?? '',
       withUserId: json['withUserId'] ?? '',
       withName: json['withName'] ?? '',
-      withAvatarUrl: json['withAvatarUrl'], // Changed from withAvatar
+      withAvatar: json['withAvatar'],
       lastMessage: json['lastMessage'] != null 
           ? ChatMessage.fromJson(json['lastMessage'])
           : null,
@@ -165,34 +165,112 @@ class ChatState {
 // Chat service
 class ChatService extends StateNotifier<ChatState> {
   final Ref ref;
-  
+  RealtimeSubscription? _subscription;
+
   ChatService(this.ref) : super(const ChatState()) {
     loadConversations();
+    _setupRealtimeSubscription();
   }
 
+  @override
+  void dispose() {
+    _subscription?.close();
+    super.dispose();
+  }
+
+  void _setupRealtimeSubscription() {
+    try {
+      // Manually create a Realtime instance from the Appwrite client
+      final client = ref.read(appwriteServiceProvider).client;
+      final realtime = Realtime(client);
+      
+      final dbId = '68bbb9e6003188d8686f';
+      final collectionId = 'messages';
+      
+      _subscription = realtime.subscribe([
+        'databases.$dbId.collections.$collectionId.documents'
+      ]);
+
+      _subscription!.stream.listen((response) {
+        final event = 'databases.$dbId.collections.$collectionId.documents.*.create';
+        if (response.events.contains(event)) {
+          _handleRealtimeMessage(response.payload);
+        }
+      });
+    } catch (e) {
+      print('Error setting up realtime subscription: $e');
+    }
+  }
+
+  void _handleRealtimeMessage(Map<String, dynamic> payload) {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+
+    final augmentedPayload = Map<String, dynamic>.from(payload);
+    augmentedPayload['id'] = payload[r'$id'];
+    augmentedPayload['createdAt'] = payload[r'$createdAt'];
+
+    final newMessage = ChatMessage.fromJson(augmentedPayload);
+
+    if (newMessage.senderId == user.uid) {
+      return;
+    }
+
+    final incomingChatId = augmentedPayload['chatId'] as String;
+    int conversationIndex = state.conversations.indexWhere((c) => c.chatId == incomingChatId);
+
+    if (conversationIndex != -1) {
+      final conversation = state.conversations[conversationIndex];
+      
+      final updatedConversation = ChatConversation(
+        chatId: conversation.chatId,
+        withUserId: conversation.withUserId,
+        withName: conversation.withName,
+        withAvatar: conversation.withAvatar,
+        lastMessage: newMessage,
+        unreadCount: conversation.unreadCount + 1, 
+        lastActivity: newMessage.timestamp,
+        isOnline: conversation.isOnline,
+      );
+
+      final updatedList = List<ChatConversation>.from(state.conversations);
+      updatedList.removeAt(conversationIndex);
+      updatedList.insert(0, updatedConversation);
+
+      final totalUnread = updatedList.fold<int>(0, (sum, conv) => sum + conv.unreadCount);
+
+      state = state.copyWith(
+        conversations: updatedList,
+        totalUnreadCount: totalUnread,
+      );
+
+    } else {
+      print('New conversation detected, reloading all conversations...');
+      loadConversations();
+    }
+  }
   Future<void> loadConversations() async {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
       final appwriteService = ref.read(appwriteServiceProvider);
-      final authService = ref.read(authServiceProvider);
-      final currentUser = ref.read(authProvider).user;
+      final user = ref.read(authProvider).user;
       
-      if (currentUser == null) {
+      if (user == null) {
         throw Exception('User not authenticated');
       }
       
-      // Query for chats where the user is either participant
+      // Correctly query for chats where the user is either participant
       final response1 = await appwriteService.databases.listDocuments(
-        databaseId: '68bbb9e6003188d8686f',
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
         collectionId: 'chats',
-        queries: [Query.equal('participant1Id', currentUser.uid)],
+        queries: [Query.equal('participant1Id', user.uid)],
       );
       
       final response2 = await appwriteService.databases.listDocuments(
-        databaseId: '68bbb9e6003188d8686f',
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
         collectionId: 'chats',
-        queries: [Query.equal('participant2Id', currentUser.uid)],
+        queries: [Query.equal('participant2Id', user.uid)],
       );
 
       final allDocuments = [...response1.documents, ...response2.documents];
@@ -201,35 +279,9 @@ class ChatService extends StateNotifier<ChatState> {
       final conversations = <ChatConversation>[];
       
       for (var doc in uniqueDocuments) {
-        final otherUserId = doc.data['participant1Id'] == currentUser.uid 
-            ? doc.data['participant2Id'] as String
-            : doc.data['participant1Id'] as String;
-
-        // Fetch the full profile of the other user
-        final partnerProfile = await authService.getUserProfile(otherUserId);
-
-        if (partnerProfile == null) {
-          // Skip this conversation if the other user's profile can't be fetched
-          continue;
-        }
-
-        // Determine the correct name and avatar for the conversation list
-        String conversationName;
-        String? conversationAvatarUrl;
-
-        if (currentUser.role == 'employer') {
-          // If I am an employer, the other person must be a seeker
-          conversationName = partnerProfile.displayName;
-          conversationAvatarUrl = partnerProfile.avatarUrl;
-        } else {
-          // If I am a seeker, the other person must be an employer
-          conversationName = partnerProfile.companyName ?? partnerProfile.displayName;
-          conversationAvatarUrl = partnerProfile.companyLogoUrl;
-        }
-
         // Get the latest message for this chat
         final messagesResponse = await appwriteService.databases.listDocuments(
-          databaseId: '68bbb9e6003188d8686f',
+          databaseId: '68bbb9e6003188d8686f', // mvpDB
           collectionId: 'messages',
           queries: [
             Query.equal('chatId', doc.$id),
@@ -241,38 +293,84 @@ class ChatService extends StateNotifier<ChatState> {
         ChatMessage? lastMessage;
         if (messagesResponse.documents.isNotEmpty) {
           final messageDoc = messagesResponse.documents.first;
-          lastMessage = ChatMessage.fromJson({
-            ...messageDoc.data,
-            'id': messageDoc.$id,
-            'createdAt': messageDoc.$createdAt,
-          });
+          lastMessage = ChatMessage(
+            id: messageDoc.$id,
+            senderId: messageDoc.data['senderId'] as String,
+            senderName: messageDoc.data['senderName'] as String,
+            text: messageDoc.data['text'] as String,
+            timestamp: DateTime.parse(messageDoc.$createdAt),
+            isRead: messageDoc.data['isRead'] as bool,
+            type: MessageType.values.firstWhere(
+              (e) => e.name == messageDoc.data['type'],
+              orElse: () => MessageType.text,
+            ),
+            status: MessageStatus.values.firstWhere(
+              (e) => e.name == messageDoc.data['status'],
+              orElse: () => MessageStatus.sent,
+            ),
+          );
         }
         
+        // Determine the other participant
+        final otherUserId = doc.data['participant1Id'] == user.uid 
+            ? doc.data['participant2Id'] as String
+            : doc.data['participant1Id'] as String;
+            
+        final otherUserName = doc.data['participant1Id'] == user.uid 
+            ? doc.data['participant2Name'] as String
+            : doc.data['participant1Name'] as String;
+        
+        // Get unread message count
+        final unreadCountResponse = await appwriteService.databases.listDocuments(
+          databaseId: '68bbb9e6003188d8686f', // mvpDB
+          collectionId: 'messages',
+          queries: [
+            Query.equal('chatId', doc.$id),
+            Query.equal('isRead', false),
+            Query.equal('senderId', otherUserId),
+          ],
+        );
+        final unreadCount = unreadCountResponse.total;
+        
+        // Fetch avatar URL for the other user
+        String? otherUserAvatarUrl;
+        final otherUserProfile = await ref.read(authServiceProvider).getUserProfile(otherUserId);
+        if (otherUserProfile != null) {
+          otherUserAvatarUrl = otherUserProfile.role == 'employer'
+              ? otherUserProfile.companyLogoUrl
+              : otherUserProfile.avatarUrl;
+        }
+
         conversations.add(ChatConversation(
           chatId: doc.$id,
           withUserId: otherUserId,
-          withName: conversationName,
-          withAvatarUrl: conversationAvatarUrl,
+          withName: otherUserName,
+          withAvatar: otherUserAvatarUrl, // Pass the avatar URL
           lastMessage: lastMessage,
-          unreadCount: 0, // TODO: Implement unread count logic
+          unreadCount: unreadCount,
           lastActivity: lastMessage?.timestamp ?? DateTime.parse(doc.$updatedAt),
           isOnline: false, // TODO: Implement online status
         ));
       }
       
       // Sort by last activity
-      conversations.sort((a, b) => (b.lastActivity ?? DateTime(1970)).compareTo(a.lastActivity ?? DateTime(1970)));
+      conversations.sort((a, b) {
+        final aTime = a.lastActivity ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.lastActivity ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
       
-      final totalUnread = conversations.fold<int>(0, (sum, conv) => sum + conv.unreadCount);
+      final totalUnread = conversations.fold<int>(
+        0, 
+        (sum, conv) => sum + conv.unreadCount,
+      );
       
       state = state.copyWith(
         conversations: conversations,
         isLoading: false,
         totalUnreadCount: totalUnread,
       );
-    } catch (error, stackTrace) {
-      print('Error loading conversations: $error');
-      print(stackTrace);
+    } catch (error) {
       state = state.copyWith(
         isLoading: false,
         error: error.toString(),
@@ -432,7 +530,7 @@ class ChatService extends StateNotifier<ChatState> {
             chatId: conv.chatId,
             withUserId: conv.withUserId,
             withName: conv.withName,
-            withAvatarUrl: conv.withAvatarUrl,
+            withAvatar: conv.withAvatar,
             lastMessage: conv.lastMessage?.copyWith(isRead: true),
             unreadCount: 0,
             lastActivity: conv.lastActivity,
@@ -464,7 +562,7 @@ class ChatService extends StateNotifier<ChatState> {
           chatId: conv.chatId,
           withUserId: conv.withUserId,
           withName: conv.withName,
-          withAvatarUrl: conv.withAvatarUrl,
+          withAvatar: conv.withAvatar,
           lastMessage: message,
           unreadCount: message.senderId != 'me' ? conv.unreadCount + 1 : conv.unreadCount,
           lastActivity: message.timestamp,
@@ -547,7 +645,7 @@ class ChatService extends StateNotifier<ChatState> {
           chatId: conv.chatId,
           withUserId: conv.withUserId,
           withName: conv.withName,
-          withAvatarUrl: conv.withAvatarUrl,
+          withAvatar: conv.withAvatar,
           lastMessage: conv.lastMessage,
           unreadCount: conv.unreadCount,
           lastActivity: conv.lastActivity,
@@ -615,9 +713,17 @@ class ChatRoomState {
 class ChatRoomService extends StateNotifier<ChatRoomState> {
   final String chatId;
   final Ref ref;
-  
+  RealtimeSubscription? _subscription;
+
   ChatRoomService(this.chatId, this.ref) : super(const ChatRoomState()) {
     _loadMessages();
+    _setupRealtime();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.close();
+    super.dispose();
   }
 
   Future<void> _loadMessages() async {
@@ -633,15 +739,19 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
       try {
         conversation = chatState.conversations.firstWhere((c) => c.chatId == chatId);
       } catch (e) {
-        // Handle case where conversation is not in the list (e.g., deep link)
-        print('Conversation not found in list, fetching details...');
+        print('Conversation not found in list, fetching details from document...');
       }
 
       String? otherUserId;
+      String partnerName = 'Unknown User';
+      String? partnerAvatarUrl; // This will be populated
+
       if (conversation != null) {
         otherUserId = conversation.withUserId;
+        partnerName = conversation.withName;
+        partnerAvatarUrl = conversation.withAvatar; // Get from conversation
       } else {
-        // Fallback: get partner ID from the chat document itself
+        // Fallback for new chats: get partner details from the chat document itself
         final appwriteService = ref.read(appwriteServiceProvider);
         final chatDoc = await appwriteService.databases.getDocument(
           databaseId: '68bbb9e6003188d8686f',
@@ -650,34 +760,35 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
         );
         final currentUser = ref.read(authProvider).user;
         if (currentUser != null) {
-           otherUserId = chatDoc.data['participant1Id'] == currentUser.uid
-              ? chatDoc.data['participant2Id'] as String
-              : chatDoc.data['participant1Id'] as String;
+          final p1Id = chatDoc.data['participant1Id'] as String;
+          final p2Id = chatDoc.data['participant2Id'] as String;
+
+          if (p1Id == currentUser.uid) {
+            otherUserId = p2Id;
+            partnerName = chatDoc.data['participant2Name'] as String? ?? 'Unknown User';
+          } else {
+            otherUserId = p1Id;
+            partnerName = chatDoc.data['participant1Name'] as String? ?? 'Unknown User';
+          }
         }
       }
 
-      String partnerName = 'Unknown User';
-      String? partnerAvatarUrl;
-
+      // Always fetch the partner's profile to get the latest avatarUrl
       if (otherUserId != null) {
         final authService = ref.read(authServiceProvider);
-                final partnerProfile = await authService.getUserProfile(otherUserId);
+        final partnerProfile = await authService.getUserProfile(otherUserId);
         if (partnerProfile != null) {
-          if (partnerProfile.role == 'employer') {
-            partnerName = partnerProfile.companyName ?? partnerProfile.displayName ?? 'Unknown Company';
-            partnerAvatarUrl = partnerProfile.companyLogoUrl;
-          } else {
-            partnerName = partnerProfile.displayName ?? 'Unknown User';
-            partnerAvatarUrl = partnerProfile.avatarUrl;
-          }
+          partnerAvatarUrl = partnerProfile.role == 'employer'
+              ? partnerProfile.companyLogoUrl
+              : partnerProfile.avatarUrl;
         }
       }
       
       state = state.copyWith(
-        messages: messages.reversed.toList(),
+        messages: messages,
         isLoading: false,
         chatPartner: partnerName,
-        chatPartnerAvatarUrl: partnerAvatarUrl,
+        chatPartnerAvatarUrl: partnerAvatarUrl, // Pass the fetched avatar URL
         isOnline: conversation?.isOnline ?? false,
       );
       
@@ -693,6 +804,55 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
     }
   }
 
+  void _setupRealtime() {
+    try {
+      final client = ref.read(appwriteServiceProvider).client;
+      final realtime = Realtime(client);
+      final dbId = '68bbb9e6003188d8686f';
+      final collectionId = 'messages';
+
+      _subscription = realtime.subscribe(['databases.$dbId.collections.$collectionId.documents']);
+
+      _subscription!.stream.listen((response) {
+        final event = 'databases.$dbId.collections.$collectionId.documents.*.create';
+        if (response.events.contains(event)) {
+          if (response.payload['chatId'] == chatId) {
+            _handleRealtimeMessage(response.payload);
+          }
+        }
+      });
+    } catch (e) {
+      print('Error setting up chat room realtime subscription: $e');
+      state = state.copyWith(error: 'Could not connect to real-time service.');
+    }
+  }
+
+  void _handleRealtimeMessage(Map<String, dynamic> payload) {
+    final augmentedPayload = Map<String, dynamic>.from(payload);
+    augmentedPayload['id'] = payload[r'$id'];
+    augmentedPayload['createdAt'] = payload[r'$createdAt'];
+
+    final newMessage = ChatMessage.fromJson(augmentedPayload);
+    final currentUser = ref.read(authProvider).user;
+
+    // If the message is from the current user, it's an echo of what we just sent.
+    // We find the 'sending' message and replace it with the confirmed one from the server.
+    if (currentUser != null && newMessage.senderId == currentUser.uid) {
+      final updatedMessages = state.messages.map((m) {
+        if (m.status == MessageStatus.sending && m.text == newMessage.text) {
+          return newMessage; // Replace with the server-confirmed message
+        }
+        return m;
+      }).toList();
+      state = state.copyWith(messages: updatedMessages);
+    } else {
+      // If the message is from someone else, add it to the beginning of the list.
+      if (!state.messages.any((m) => m.id == newMessage.id)) {
+        state = state.copyWith(messages: [newMessage, ...state.messages]);
+      }
+    }
+  }
+
   Future<void> sendMessage(String text, {MessageType type = MessageType.text}) async {
     if (text.trim().isEmpty) return;
 
@@ -702,7 +862,7 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
       return;
     }
 
-    // 1. Optimistic UI: Create a message and add it to the state immediately.
+    // Create an optimistic message to show in the UI immediately.
     final optimisticMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(), // Temporary local ID
       senderId: user.uid,
@@ -713,27 +873,16 @@ class ChatRoomService extends StateNotifier<ChatRoomState> {
       status: MessageStatus.sending, // Show as 'sending'
     );
 
-    // The UI list is reversed, so add new messages to the beginning.
+    // Add the optimistic message to the beginning of the list.
     state = state.copyWith(messages: [optimisticMessage, ...state.messages], error: null);
 
     try {
+      // Send the actual message to the backend.
       final chatService = ref.read(chatServiceProvider.notifier);
-      // 2. Send the message to the backend in the background.
       await chatService.sendMessage(chatId, text, type: type);
-
-      // 3. On success, update the message from 'sending' to 'sent'.
-      final updatedMessages = state.messages.map((m) {
-        if (m.id == optimisticMessage.id) {
-          // We don't have the real server ID, so we just update the status.
-          // This is a limitation of the current backend implementation.
-          return m.copyWith(status: MessageStatus.sent);
-        }
-        return m;
-      }).toList();
-      state = state.copyWith(messages: updatedMessages);
-
+      // The real-time listener will handle updating the message status to 'sent'.
     } catch (error) {
-      // 4. On failure, update the message to 'failed'.
+      // If sending fails, update the message status to 'failed'.
       print('Error sending message: $error');
       final updatedMessages = state.messages.map((m) {
         if (m.id == optimisticMessage.id) {

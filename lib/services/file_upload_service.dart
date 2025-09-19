@@ -13,7 +13,7 @@ import '../../services/auth_service.dart';
 
 class FileUploadService {
   final AppwriteService _appwriteService;
-  static const String _profilePicturesBucketId = 'profile_pictures';
+  static const String _profilePicturesBucketId = 'company_logos';
   static const String _resumesBucketId = 'company_logos'; // Using the same bucket as company logos to save resources
   static const String _companyLogosBucketId = 'company_logos'; // แยก bucket สำหรับ company logos
   
@@ -106,7 +106,7 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
   Future<void> _handleUpload() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: widget.isDocument ? FileType.custom : FileType.image,
-      allowedExtensions: widget.isDocument ? ['pdf', 'doc', 'docx'] : ['jpg', 'jpeg', 'png'],
+      allowedExtensions: widget.isDocument ? ['pdf', 'doc', 'docx'] : null,
     );
 
     if (result == null || result.files.isEmpty) {

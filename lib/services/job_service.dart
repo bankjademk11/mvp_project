@@ -27,6 +27,11 @@ class JobService {
     try {
       // Get the current user to associate with the job
       final currentUser = await _appwriteService.account.get();
+      
+      // Get the current user's profile to retrieve companyLogoUrl
+      final authService = AuthService(_appwriteService); // Create an instance of AuthService
+      final currentUserProfile = await authService.getCurrentUser();
+      final companyLogoUrl = currentUserProfile?.companyLogoUrl; // Get companyLogoUrl
 
       final data = {
         'title': title,
@@ -40,6 +45,7 @@ class JobService {
         'companyId': companyId ?? '',
         'creatorUserId': currentUser.$id, // Save the creator's user ID
         'teamId': teamId ?? '', // Add this
+        'companyLogoUrl': companyLogoUrl, // Add companyLogoUrl
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
         'isActive': true,
