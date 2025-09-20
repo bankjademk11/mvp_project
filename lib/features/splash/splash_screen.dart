@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+// TODO: Add shared_preferences package to pubspec.yaml for this feature to work
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -54,23 +56,29 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeIn,
     ));
 
-    _startAnimations();
+    _decideNextRoute();
   }
 
-  void _startAnimations() async {
+  void _decideNextRoute() async {
+    // Start animations
     await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      _logoController.forward();
-    }
-    
+    if (mounted) _logoController.forward();
     await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) {
-      _textController.forward();
-    }
-    
+    if (mounted) _textController.forward();
+
+    // Wait for animations to finish
     await Future.delayed(const Duration(milliseconds: 2000));
+
     if (mounted) {
-      context.go('/onboarding');
+      // Check if onboarding has been seen
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+
+      if (hasSeenOnboarding) {
+        context.go('/login');
+      } else {
+        context.go('/onboarding');
+      }
     }
   }
 
@@ -103,16 +111,16 @@ class _SplashScreenState extends State<SplashScreen>
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
+                          color: Colors.black.withOpacity(0.2),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.work,
                       size: 60,
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 );

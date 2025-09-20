@@ -496,14 +496,37 @@ class AuthService {
 
       print('Debug: Updating user profile with data: $profileData');
 
-      final profileDocument = await _appwriteService.databases.updateDocument(
-        databaseId: _databaseId,
-        collectionId: _userProfilesCollectionId,
-        documentId: userId,
-        data: profileData,
-      );
+      models.Document profileDocument;
+      try {
+        profileDocument = await _appwriteService.databases.updateDocument(
+          databaseId: _databaseId,
+          collectionId: _userProfilesCollectionId,
+          documentId: userId,
+          data: profileData,
+        );
+      } on AppwriteException catch (e) {
+        if (e.code == 404) {
+          // Document not found, create it instead
+          print('Debug: Profile document not found for $userId. Creating a new one.');
+          // Add the userId to the data map, as it's required for creation
+          profileData['userId'] = userId;
+          profileDocument = await _appwriteService.databases.createDocument(
+            databaseId: _databaseId,
+            collectionId: _userProfilesCollectionId,
+            documentId: userId,
+            data: profileData,
+            permissions: [
+              Permission.read(Role.user(userId)),
+              Permission.update(Role.user(userId)),
+              Permission.delete(Role.user(userId)),
+            ],
+          );
+        } else {
+          rethrow;
+        }
+      }
 
-      print('Debug: Profile document updated successfully: ${profileDocument.$id}');
+      print('Debug: Profile document updated/created successfully: ${profileDocument.$id}');
 
       // ดึงข้อมูลผู้ใช้ล่าสุด
       final appwriteUser = await _appwriteService.account.get();

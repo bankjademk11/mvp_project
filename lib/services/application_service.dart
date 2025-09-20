@@ -5,6 +5,7 @@ import 'package:appwrite/models.dart' as models;
 import '../models/application.dart';
 import 'appwrite_service.dart';
 import 'auth_service.dart';
+import 'job_service.dart'; // Added import
 
 class ApplicationService {
   final AppwriteService _appwriteService;
@@ -25,9 +26,11 @@ class ApplicationService {
         ],
       );
       
-      return response.documents
-          .map((doc) => JobApplication.fromJson(doc.data))
-          .toList();
+      return response.documents.map((doc) {
+        final data = doc.data;
+        data['id'] = doc.$id; // Add the document ID to the map
+        return JobApplication.fromJson(data);
+      }).toList();
     } on appwrite.AppwriteException catch (e) {
       throw Exception('Failed to fetch applications: ${e.message}');
     }
@@ -176,6 +179,67 @@ class ApplicationService {
       print('Exception in getApplicationsForEmployer: $e');
       print('Stack trace: $stackTrace');
       throw Exception('Failed to execute function: ${e.toString()}');
+    }
+  }
+
+  // New method to get all applications for an employer across all their jobs
+  Future<List<models.Document>> getAllApplicationsForEmployer(String employerId) async {
+    try {
+      // 1. Get all jobs for the employer
+      final jobService = JobService(_appwriteService);
+      final employerJobs = await jobService.getJobsByCompanyId(employerId);
+
+      if (employerJobs.isEmpty) {
+        return []; // No jobs, so no applications
+      }
+
+      // 2. Extract all job IDs
+      final jobIds = employerJobs.map((job) => job.$id).toList();
+
+      // 3. Fetch all applications for those job IDs
+      final response = await _appwriteService.databases.listDocuments(
+        databaseId: _databaseId,
+        collectionId: _applicationsCollectionId,
+        queries: [
+          appwrite.Query.equal('jobId', jobIds),
+          appwrite.Query.orderDesc('appliedAt'),
+        ],
+      );
+
+      // 4. Enrich documents with applicant avatar URLs
+      final authService = AuthService(_appwriteService);
+      final enrichedDocuments = <models.Document>[];
+
+      for (final doc in response.documents) {
+        final applicantId = doc.data['userId'] as String?;
+        if (applicantId != null) {
+          final applicantProfile = await authService.getUserProfile(applicantId);
+          final avatarUrl = applicantProfile?.avatarUrl;
+          enrichedDocuments.add(models.Document(
+            $id: doc.$id,
+            $collectionId: doc.$collectionId,
+            $databaseId: doc.$databaseId,
+            $createdAt: doc.$createdAt,
+            $updatedAt: doc.$updatedAt,
+            $permissions: doc.$permissions,
+            $sequence: doc.data['\$sequence'] as int? ?? 0, // Ensure sequence is handled
+            data: {
+              ...doc.data,
+              'applicantAvatarUrl': avatarUrl,
+            },
+          ));
+        } else {
+          enrichedDocuments.add(doc);
+        }
+      }
+
+      return enrichedDocuments;
+    } on appwrite.AppwriteException catch (e) {
+      print('AppwriteException in getAllApplicationsForEmployer: ${e.message}');
+      throw Exception('Failed to fetch all applications for employer: ${e.message}');
+    } catch (e) {
+      print('Exception in getAllApplicationsForEmployer: $e');
+      throw Exception('Failed to fetch all applications for employer: ${e.toString()}');
     }
   }
 

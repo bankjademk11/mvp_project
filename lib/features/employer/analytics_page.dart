@@ -39,7 +39,7 @@ class EmployerAnalyticsPage extends ConsumerWidget {
                 icon: Icons.visibility,
                 value: '1,234',
                 label: t('total_views'),
-                color: Colors.blue,
+                color: theme.colorScheme.primary, // Updated from Colors.blue
               ),
               _buildAnalyticsCard(
                 context: context,

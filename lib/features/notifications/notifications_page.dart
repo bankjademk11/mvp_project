@@ -261,7 +261,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     switch (notification.type) {
       case NotificationType.newJob:
         iconData = Icons.work_outline;
-        iconColor = Colors.blue;
+        iconColor = const Color(0xFF34D399); // Primary Green from theme
         break;
       case NotificationType.jobApplication:
         iconData = Icons.assignment_outlined;

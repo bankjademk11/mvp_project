@@ -179,6 +179,56 @@ class JobService {
       throw Exception('Failed to search jobs: ${e.message}');
     }
   }
+
+  /// Get jobs with filters
+  Future<List<models.Document>> getFilteredJobs({
+    String? keyword,
+    String? province,
+    String? jobType,
+    String? sortBy,
+  }) async {
+    try {
+      final queries = <String>[
+        appwrite.Query.equal('isActive', true),
+      ];
+
+      if (keyword != null && keyword.isNotEmpty) {
+        queries.add(appwrite.Query.search('title', keyword));
+      }
+      if (province != null && province.isNotEmpty) {
+        queries.add(appwrite.Query.equal('province', province));
+      }
+      if (jobType != null && jobType.isNotEmpty) {
+        queries.add(appwrite.Query.equal('type', jobType));
+      }
+
+      // Sorting logic
+      switch (sortBy) {
+        case 'salary_high':
+          queries.add(appwrite.Query.orderDesc('salaryMax'));
+          break;
+        case 'salary_low':
+          queries.add(appwrite.Query.orderAsc('salaryMin'));
+          break;
+        case 'company':
+          queries.add(appwrite.Query.orderAsc('companyName'));
+          break;
+        case 'latest':
+        default:
+          queries.add(appwrite.Query.orderDesc('\$createdAt'));
+          break;
+      }
+
+      final response = await _appwriteService.databases.listDocuments(
+        databaseId: _databaseId,
+        collectionId: _jobsCollectionId,
+        queries: queries,
+      );
+      return response.documents;
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to fetch filtered jobs: ${e.message}');
+    }
+  }
   
   /// Get jobs by company ID
   Future<List<models.Document>> getJobsByCompanyId(String companyId) async {

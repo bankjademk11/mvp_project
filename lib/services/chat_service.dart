@@ -536,18 +536,13 @@ class ChatService extends StateNotifier<ChatState> {
   }
 
   Future<void> markAsRead(String chatId) async {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+
     try {
       final appwriteService = ref.read(appwriteServiceProvider);
-      
-      // Update all unread messages in this chat to read
-      // Note: This is a simplified implementation. In a real app, you might want to 
-      // update messages in batches or use a more efficient approach.
-      
-      // First, get the current user
-      final user = ref.read(authProvider).user;
-      if (user == null) return;
-      
-      // Update local state
+
+      // First, update the local state immediately for a responsive UI
       final updatedConversations = state.conversations.map((conv) {
         if (conv.chatId == chatId) {
           return ChatConversation(
@@ -556,26 +551,47 @@ class ChatService extends StateNotifier<ChatState> {
             withName: conv.withName,
             withAvatar: conv.withAvatar,
             lastMessage: conv.lastMessage?.copyWith(isRead: true),
-            unreadCount: 0,
+            unreadCount: 0, // Set to 0 locally
             lastActivity: conv.lastActivity,
             isOnline: conv.isOnline,
           );
         }
         return conv;
       }).toList();
-      
-      final totalUnread = updatedConversations.fold<int>(
-        0, 
-        (sum, conv) => sum + conv.unreadCount,
-      );
-      
+
+      final totalUnread = updatedConversations.fold<int>(0, (sum, conv) => sum + conv.unreadCount);
+
       state = state.copyWith(
         conversations: updatedConversations,
         totalUnreadCount: totalUnread,
       );
+
+      // Then, update the backend in the background
+      // Get all unread messages for this chat not sent by the current user
+      final unreadMessages = await appwriteService.databases.listDocuments(
+        databaseId: '68bbb9e6003188d8686f', // mvpDB
+        collectionId: 'messages',
+        queries: [
+          Query.equal('chatId', chatId),
+          Query.equal('isRead', false),
+          Query.notEqual('senderId', user.uid), // Only mark messages from others as read
+        ],
+      );
+
+      // Loop and update each message
+      for (final message in unreadMessages.documents) {
+        await appwriteService.databases.updateDocument(
+          databaseId: '68bbb9e6003188d8686f', // mvpDB
+          collectionId: 'messages',
+          documentId: message.$id,
+          data: {'isRead': true},
+        );
+      }
     } catch (error) {
-      // Handle error silently for now, but in a real app you might want to show an error message
-      print('Failed to mark messages as read: $error');
+      // If backend update fails, the local state is already updated for a good UX.
+      // In a real-world scenario, we might want to handle this more gracefully,
+      // e.g., by reverting the local state or scheduling a retry.
+      print('Failed to mark messages as read on the backend: $error');
     }
   }
 

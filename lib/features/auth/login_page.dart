@@ -1,3 +1,5 @@
+
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../common/widgets/primary_button.dart';
 import '../../services/auth_service.dart';
 import '../../services/language_service.dart';
-import '../../models/user.dart'; // Add this import for AuthState
+import '../../models/user.dart';
+import '../../common/widgets/organic_wave_painter.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -19,8 +22,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
-  bool _isRateLimited = false;
-  DateTime? _rateLimitEndTime;
+  bool _rememberMe = false;
 
   late final AnimationController _waveController;
   late final AnimationController _rotationController;
@@ -35,7 +37,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
 
     _rotationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 25),
     )..repeat();
   }
 
@@ -49,27 +51,13 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
   }
 
   void _handleLogin() async {
-    if (_isRateLimited) {
-      _showRateLimitMessage();
-      return;
-    }
-    
     if (!_formKey.currentState!.validate()) return;
-    
+
     ref.read(authProvider.notifier).clearError();
     await ref.read(authProvider.notifier).login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
-  }
-
-  void _showRateLimitMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ระบบถูกใช้งานมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
   }
 
   @override
@@ -77,257 +65,237 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
     final authState = ref.watch(authProvider);
     final languageState = ref.watch(languageProvider);
     final t = (key) => AppLocalizations.translate(key, languageState.languageCode);
-    
+    final theme = Theme.of(context);
+
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.isAuthenticated) {
-        // Redirect based on user role
         if (next.user?.role == 'employer') {
           context.go('/employer/dashboard');
         } else {
           context.go('/jobs');
         }
       } else if (next.error != null && next.error!.isNotEmpty) {
-        // Check if it's a rate limit error
-        if (next.error!.contains('rate_limit_exceeded')) {
-          setState(() {
-            _isRateLimited = true;
-            // Set rate limit end time to 1 minute from now
-            _rateLimitEndTime = DateTime.now().add(const Duration(minutes: 1));
-            
-            // Reset rate limit after 1 minute
-            Future.delayed(const Duration(minutes: 1), () {
-              if (mounted) {
-                setState(() {
-                  _isRateLimited = false;
-                  _rateLimitEndTime = null;
-                });
-              }
-            });
-          });
-          
-          _showRateLimitMessage();
-        } else {
-          // Show other error messages
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(t(next.error!)),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t(next.error!)),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
       }
     });
-    
+
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              Theme.of(context).colorScheme.background,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: OrganicWavePainter(),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 40),
-                    // App Logo with Animation
-                    SizedBox(
-                      height: 200,
-                      width: 200,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          RotationTransition(
-                            turns: _rotationController,
-                            child: AnimatedBuilder(
-                              animation: _waveController,
-                              builder: (context, child) {
-                                return CustomPaint(
-                                  size: const Size(200, 200),
-                                  painter: _WavePainter(
-                                    animationValue: _waveController.value,
-                                    colors: [
-                                      Theme.of(context).colorScheme.primary,
-                                      Theme.of(context).colorScheme.secondary,
-                                      Colors.lightBlue.shade200,
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 60),
+                      _AnimatedLogo(
+                        waveController: _waveController,
+                        rotationController: _rotationController,
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        t('welcome_back'),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onBackground,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        t('login_to_continue'),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                      const SizedBox(height: 48),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(labelText: t('email')),
+                        validator: (value) {
+                          if (value == null || value.isEmpty || !value.contains('@')) {
+                            return t('email_invalid');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: t('password'),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
-                          Icon(
-                            Icons.business_center,
-                            size: 80,
-                            color: Theme.of(context).colorScheme.primary,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return t('password_required');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _rememberMe,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _rememberMe = value ?? false;
+                                  });
+                                },
+                                activeColor: theme.colorScheme.primary,
+                              ),
+                              Text(t('remember_me')),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () {},
+                            child: Text(t('forgot_password')),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      t('welcome_back'),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 32),
+                      PrimaryButton(
+                        text: authState.isLoading ? t('loading') : t('login'),
+                        onPressed: authState.isLoading ? null : _handleLogin,
+                        loading: authState.isLoading,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      t('login_to_continue'),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    if (authState.error != null && !authState.error!.contains('rate_limit_exceeded')) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          t(authState.error!),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    if (_isRateLimited) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'ระบบถูกใช้งานมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(labelText: t('email')),
-                      validator: (value) {
-                        if (value == null || value.isEmpty || !value.contains('@')) {
-                          return t('email_invalid');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: t('password'),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                      ),
-                       validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return t('password_required');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {},
-                        child: Text(t('forgot_password')),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    PrimaryButton(
-                      text: authState.isLoading ? t('loading') : t('login'),
-                      onPressed: authState.isLoading || _isRateLimited ? null : _handleLogin,
-                      loading: authState.isLoading,
-                    ),
-                    const SizedBox(height: 32),
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            t('or_continue_with'),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      const SizedBox(height: 40),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              t('or_continue_with'),
+                              style: theme.textTheme.bodyMedium,
                             ),
                           ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildSocialButton(icon: 'assets/images/google_logo.png'), // Placeholder
-                        const SizedBox(width: 24),
-                        _buildSocialButton(icon: 'assets/images/apple_logo.png'), // Placeholder
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(child: Text(t('no_account'))),
-                        TextButton(
-                          onPressed: () => context.push('/register'),
-                          child: Text(t('register_now')),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 40),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildSocialButton(icon: const Icon(Icons.g_mobiledata, size: 28)),
+                          const SizedBox(width: 24),
+                          _buildSocialButton(icon: const Icon(Icons.apple, size: 28)),
+                        ],
+                      ),
+                      const SizedBox(height: 48),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(t('no_account'), style: theme.textTheme.bodyMedium),
+                          TextButton(
+                            onPressed: () => context.push('/register'),
+                            child: Text(t('register_now')),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildSocialButton({required String icon}) {
-    return IconButton(
+  Widget _buildSocialButton({required Widget icon}) {
+    return OutlinedButton(
       onPressed: () {},
-      icon: CircleAvatar(
-        radius: 24,
-        backgroundColor: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          // child: Image.asset(icon), // Uncomment when you have the assets
-          child: Icon(Icons.login, size: 20), // Placeholder icon
-        ),
+      style: OutlinedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: const EdgeInsets.all(16),
+        side: BorderSide(color: Colors.grey.shade300),
       ),
-      style: IconButton.styleFrom(
-        side: BorderSide(color: Colors.grey.shade300, width: 1),
+      child: icon,
+    );
+  }
+}
+
+class _AnimatedLogo extends StatelessWidget {
+  const _AnimatedLogo({
+    required this.waveController,
+    required this.rotationController,
+  });
+
+  final AnimationController waveController;
+  final AnimationController rotationController;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 200,
+      width: 200,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          RotationTransition(
+            turns: rotationController,
+            child: AnimatedBuilder(
+              animation: waveController,
+              builder: (context, child) {
+                return CustomPaint(
+                  size: const Size(200, 200),
+                  painter: _WavePainter(
+                    animationValue: waveController.value,
+                    color: theme.colorScheme.secondary, // Use darker green for waves
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                )
+              ]
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Icon(
+              Icons.business_center,
+              size: 60,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -335,24 +303,24 @@ class _LoginPageState extends ConsumerState<LoginPage> with TickerProviderStateM
 
 class _WavePainter extends CustomPainter {
   final double animationValue;
-  final List<Color> colors;
-  final int waveCount = 3;
+  final Color color;
+  final int waveCount = 4;
 
-  _WavePainter({required this.animationValue, required this.colors});
+  _WavePainter({required this.animationValue, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    
+
     for (int i = 0; i < waveCount; i++) {
       final progress = (animationValue + (i / waveCount)) % 1.0;
-      final radius = size.width / 2 * progress;
-      final alpha = (255 * (1.0 - progress)).clamp(0, 255).toInt();
-      
+      final radius = size.width / 1.5 * progress * (i % 2 == 0 ? 1 : 0.7);
+      final alpha = (150 * (1.0 - progress)).clamp(0, 255).toInt();
+
       final paint = Paint()
-        ..color = colors[i % colors.length].withAlpha(alpha)
+        ..color = color.withAlpha(alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0;
+        ..strokeWidth = 2.0;
 
       canvas.drawCircle(center, radius, paint);
     }

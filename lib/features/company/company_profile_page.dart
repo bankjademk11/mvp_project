@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:appwrite/models.dart' as models;
+import '../../services/auth_service.dart'; // Import AuthService
 import '../../services/company_service.dart';
 import '../../services/review_service.dart';
 import '../../services/language_service.dart';
+import '../../services/job_service.dart'; // Import JobService
 import '../../models/company.dart';
 import '../../models/review.dart';
 
@@ -95,7 +98,20 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
       );
     }
 
+    // Check if the current user is the owner of this profile
+    final currentUser = ref.watch(authProvider).user;
+    final isOwner = currentUser != null &&
+        currentUser.uid == widget.companyId &&
+        currentUser.role == 'employer';
+
     return Scaffold(
+      floatingActionButton: isOwner
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/employer/setup-company'),
+              label: Text(t('edit_profile')),
+              icon: const Icon(Icons.edit),
+            )
+          : null,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -402,46 +418,99 @@ class _CompanyProfilePageState extends ConsumerState<CompanyProfilePage>
   }
 
   Widget _buildJobsTab(Company company, Function t) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Text(
-            '${t('jobs_from_company')} ${company.name}',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    final jobService = ref.watch(JobService.jobServiceProvider);
+
+    return FutureBuilder<List<models.Document>>(
+      future: jobService.getJobsByCompanyId(company.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading jobs: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.work_outline,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  t('no_jobs_from_company'),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  t('check_back_later'),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final jobs = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: jobs.length,
+          itemBuilder: (context, index) {
+            final job = jobs[index];
+            return _buildJobListItem(job);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildJobListItem(models.Document job) {
+    final jobData = job.data;
+    final title = jobData['title'] ?? 'No Title';
+    final province = jobData['province'] ?? 'N/A';
+    final salaryMin = jobData['salaryMin'];
+    final salaryMax = jobData['salaryMax'];
+    final salary = (salaryMin != null && salaryMax != null)
+        ? '\${salaryMin} - \${salaryMax}'
+        : 'Competitive Salary';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => context.push('/jobs/${job.$id}'),
+        borderRadius: BorderRadius.circular(12.0),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  Icon(
-                    Icons.work_outline,
-                    size: 64,
-                    color:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    t('no_jobs_from_company'),
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    t('check_back_later'),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.6),
-                        ),
-                  ),
+                  Icon(Icons.location_on, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Text(province, style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ),
-            ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.attach_money, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Text(salary, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

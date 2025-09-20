@@ -10,6 +10,8 @@ Future<dynamic> main(final context) async {
   final String databaseId = Platform.environment['APPWRITE_DATABASE_ID']!;
   final String jobsCollectionId = Platform.environment['APPWRITE_JOBS_COLLECTION_ID']!;
   final String applicationsCollectionId = Platform.environment['APPWRITE_APPLICATIONS_COLLECTION_ID']!;
+  // เพิ่ม environment variable สำหรับ user profiles collection
+  final String userProfilesCollectionId = Platform.environment['APPWRITE_USER_PROFILES_COLLECTION_ID'] ?? 'user_profiles';
   
   context.log('Function started. Project ID: $projectId, Database ID: $databaseId');
   
@@ -29,7 +31,7 @@ Future<dynamic> main(final context) async {
     context.log('Setting up timeout handler with $timeoutDuration duration');
     
     final result = await Future.any([
-      _processRequest(context, databases, databaseId, jobsCollectionId, applicationsCollectionId),
+      _processRequest(context, databases, databaseId, jobsCollectionId, applicationsCollectionId, userProfilesCollectionId),
       Future.delayed(timeoutDuration, () {
         context.error('Function timeout handler triggered');
         return {
@@ -48,6 +50,12 @@ Future<dynamic> main(final context) async {
       }, status: 408);
     }
 
+    // If result is already a response object, return it directly
+    if (result is Map && result.containsKey('success')) {
+      context.log('Function completed successfully');
+      return context.res.json(result);
+    }
+
     context.log('Function completed successfully');
     return result;
 
@@ -61,7 +69,7 @@ Future<dynamic> main(final context) async {
 }
 
 Future<dynamic> _processRequest(final context, final databases, final databaseId, 
-    final jobsCollectionId, final applicationsCollectionId) async {
+    final jobsCollectionId, final applicationsCollectionId, final userProfilesCollectionId) async {
   try {
     context.log('Processing request...');
     
@@ -133,11 +141,90 @@ Future<dynamic> _processRequest(final context, final databases, final databaseId
     
     context.log('Applications fetched successfully in ${duration}ms. Total applications: ${applicationDocs.total}');
 
-    // 4. Return the list of applications without any data cleaning
-    context.log('Returning applications data');
+    // 4. Fetch user profiles for all applicants to get avatar URLs
+    context.log('Fetching user profiles for applicants...');
+    
+    // Collect unique userIds from applications
+    final Set<String> applicantUserIds = {};
+    for (var appDoc in applicationDocs.documents) {
+      final userId = appDoc.data['userId'];
+      if (userId != null && userId is String) {
+        applicantUserIds.add(userId);
+      }
+    }
+    
+    context.log('Found ${applicantUserIds.length} unique applicants. Fetching their profiles...');
+    
+    // Fetch all user profiles in batch
+    final Map<String, dynamic> userProfileMap = {};
+    if (applicantUserIds.isNotEmpty) {
+      try {
+        final profileDocs = await databases.listDocuments(
+          databaseId: databaseId,
+          collectionId: userProfilesCollectionId,
+          queries: [
+            Query.equal('\$id', applicantUserIds.toList()),
+          ],
+        );
+        
+        // Map profiles by userId
+        for (var profileDoc in profileDocs.documents) {
+          userProfileMap[profileDoc.$id] = profileDoc.data;
+        }
+        
+        context.log('Successfully fetched ${profileDocs.total} user profiles.');
+      } catch (profileError) {
+        context.error('Error fetching user profiles: $profileError');
+        // Continue with applications even if profile fetching fails
+      }
+    }
+
+    // 5. Enrich applications with applicant avatar/company logo URLs
+    final enrichedApplications = applicationDocs.documents.map((appDoc) {
+      final appData = appDoc.data;
+      final userId = appData['userId'] as String?;
+      
+      // Get profile data for this user
+      final profileData = userId != null ? userProfileMap[userId] : null;
+      
+      // Determine avatar/company logo URL based on user role
+      String? applicantAvatarUrl;
+      if (profileData != null) {
+        final role = profileData['role'] as String?;
+        if (role == 'employer') {
+          applicantAvatarUrl = profileData['companyLogoUrl'] as String?;
+        } else {
+          applicantAvatarUrl = profileData['avatarUrl'] as String?;
+        }
+      }
+      
+      // Create enriched application data
+      final enrichedData = {
+        ...appData,
+        if (applicantAvatarUrl != null) 'applicantAvatarUrl': applicantAvatarUrl,
+      };
+      
+      // Return enriched document - fix the DateTime conversion
+      return {
+        '\$id': appDoc.$id,
+        '\$collectionId': appDoc.$collectionId,
+        '\$databaseId': appDoc.$databaseId,
+        '\$createdAt': appDoc.$createdAt is DateTime 
+            ? (appDoc.$createdAt as DateTime).toIso8601String() 
+            : appDoc.$createdAt.toString(),
+        '\$updatedAt': appDoc.$updatedAt is DateTime 
+            ? (appDoc.$updatedAt as DateTime).toIso8601String() 
+            : appDoc.$updatedAt.toString(),
+        '\$permissions': appDoc.$permissions,
+        'data': enrichedData,
+      };
+    }).toList();
+
+    // 6. Return the list of enriched applications
+    context.log('Returning enriched applications data');
     return context.res.json({
       'success': true,
-      'documents': applicationDocs.documents.map((doc) => doc.toMap()).toList(),
+      'documents': enrichedApplications,
       'total': applicationDocs.total,
     });
 

@@ -1,0 +1,8 @@
+name: setup_chat_collections
+description: Script to set up chat collections in Appwrite
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  http: ^1.5.0

@@ -138,6 +138,7 @@ class AppLocalizations {
       'forgot_password': 'ລືມລະຫັດຜ່ານ?',
       'no_account': 'ຍັງບໍ່ມີບັນຊີ? ',
       'register_now': 'ສະໝັກສະມາຊິກ',
+      'remember_me': 'ຈື່ຂ້ອຍໄວ້',
       'register': 'ສ້າງບັນຊີ',
       'register_subtitle': 'ເລິ່ມຕ້ອນໃຊ້ງານ mvp package',
       'have_account': 'ມີບັນຊີອີຢູ່ແລ້ວ? ',
@@ -440,6 +441,7 @@ class AppLocalizations {
       'reject_application_title': 'ບໍ່ອະນຸມັດໃບສະໝັກ',
       'reject_application_confirm': 'ທ່ານຕ້ອງການບໍ່ອະນຸມັດໃບສະໝັກຂອງ {name} ບໍ່?',
       'application_rejected_success': 'ບໍ່ອະນຸມັດໃບສະໝັກສຳເລັດແລ້ວ',
+      'contact_applicant': 'ເລີ່ມສົນທະນາ',
       'interview_feature_dev': 'ຟີເຈີຈັດຕາຕະລາງສຳພາດກຳລັງພັດທະນາ',
       'confirm': 'ຢືນຢັນ',
 

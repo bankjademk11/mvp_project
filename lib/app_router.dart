@@ -192,12 +192,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: '/employer/analytics',
             builder: (_, __) => const EmployerAnalyticsPage(),
           ),
-          // New route for setting up company information
-          GoRoute(
-            path: '/employer/setup-company',
-            builder: (_, __) => const SetupCompanyPage(),
-          ),
         ],
+      ),
+      // New route for setting up company information (moved outside ShellRoute)
+      GoRoute(
+        path: '/employer/setup-company',
+        builder: (_, __) => const SetupCompanyPage(),
       ),
       GoRoute(
         path: '/jobs/:id',

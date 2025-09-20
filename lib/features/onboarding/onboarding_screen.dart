@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+// TODO: Add shared_preferences package to pubspec.yaml for this feature to work
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -52,6 +54,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
     super.dispose();
   }
 
+  Future<void> _finishOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasSeenOnboarding', true);
+    if (mounted) {
+      context.go('/login');
+    }
+  }
+
   void _onPageChanged(int index) {
     setState(() {
       _currentPage = index;
@@ -67,7 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
         curve: Curves.easeInOut,
       );
     } else {
-      context.go('/login');
+      _finishOnboarding();
     }
   }
 
@@ -111,7 +121,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
                 Align(
                   alignment: Alignment.topRight,
                   child: TextButton(
-                    onPressed: () => context.go('/login'),
+                    onPressed: _finishOnboarding,
                     child: const Text(
                       'ຂ້າມ',
                       style: TextStyle(

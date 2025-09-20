@@ -98,23 +98,27 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         title: Row(
           children: [
             CircleAvatar(
-              radius: 17.5,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              backgroundImage: (chatState.chatPartnerAvatarUrl != null && chatState.chatPartnerAvatarUrl!.isNotEmpty)
-                  ? NetworkImage(chatState.chatPartnerAvatarUrl!)
-                  : null,
-              child: (chatState.chatPartnerAvatarUrl == null || chatState.chatPartnerAvatarUrl!.isEmpty)
-                  ? Center(
-                      child: Text(
-                        (chatState.chatPartner ?? 'U').substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+              radius: 18, // For border
+              backgroundColor: Colors.grey.shade300,
+              child: CircleAvatar(
+                radius: 17.5,
+                backgroundColor: Colors.white,
+                backgroundImage: (chatState.chatPartnerAvatarUrl != null && chatState.chatPartnerAvatarUrl!.isNotEmpty)
+                    ? NetworkImage(chatState.chatPartnerAvatarUrl!)
+                    : null,
+                child: (chatState.chatPartnerAvatarUrl == null || chatState.chatPartnerAvatarUrl!.isEmpty)
+                    ? Center(
+                        child: Text(
+                          (chatState.chatPartner ?? 'U').substring(0, 1).toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary, // Green text on white bg
+                          ),
                         ),
-                      ),
-                    )
-                  : null,
+                      )
+                    : null,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -344,23 +348,27 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         children: [
           if (!isMe) ...[
             CircleAvatar(
-              radius: 15,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              backgroundImage: (chatPartnerAvatarUrl != null && chatPartnerAvatarUrl.isNotEmpty)
-                  ? NetworkImage(chatPartnerAvatarUrl)
-                  : null,
-              child: (chatPartnerAvatarUrl == null || chatPartnerAvatarUrl.isEmpty)
-                  ? Center(
-                      child: Text(
-                        (message.senderName.isNotEmpty ? message.senderName : "U").substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+              radius: 15.5, // For border
+              backgroundColor: Colors.grey.shade300,
+              child: CircleAvatar(
+                radius: 15,
+                backgroundColor: Colors.white,
+                backgroundImage: (chatPartnerAvatarUrl != null && chatPartnerAvatarUrl.isNotEmpty)
+                    ? NetworkImage(chatPartnerAvatarUrl)
+                    : null,
+                child: (chatPartnerAvatarUrl == null || chatPartnerAvatarUrl.isEmpty)
+                    ? Center(
+                        child: Text(
+                          (message.senderName.isNotEmpty ? message.senderName : "U").substring(0, 1).toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
-                      ),
-                    )
-                  : null,
+                      )
+                    : null,
+              ),
             ),
             const SizedBox(width: 8),
           ],

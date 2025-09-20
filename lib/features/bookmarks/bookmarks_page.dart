@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+// TODO: Add share_plus package to pubspec.yaml for this feature to work
+import 'package:share_plus/share_plus.dart';
 import '../../services/bookmark_service.dart';
 import '../../services/language_service.dart';
+import '../../models/bookmark.dart'; // Add import
 import '../../common/widgets/job_card.dart';
 
 class BookmarksPage extends ConsumerStatefulWidget {
@@ -162,7 +165,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
             subtitle: Text(t('job_not_found_message')),
             trailing: IconButton(
               icon: const Icon(Icons.delete),
-              onPressed: () => _removeBookmark(bookmark.jobId),
+              onPressed: () => _removeBookmark(bookmark),
             ),
           ),
         ),
@@ -226,7 +229,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
                         Icons.bookmark,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-                      onPressed: () => _removeBookmark(bookmark.jobId),
+                      onPressed: () => _removeBookmark(bookmark),
                       tooltip: t('remove_bookmark'),
                     ),
                   ],
@@ -269,9 +272,11 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
     );
   }
 
-  void _removeBookmark(String jobId) {
-    ref.read(bookmarkServiceProvider.notifier).removeBookmark(jobId);
-    
+  void _removeBookmark(Bookmark bookmark) {
+    // Immediately remove the bookmark from the service
+    ref.read(bookmarkServiceProvider.notifier).removeBookmark(bookmark.id);
+
+    // Show a snackbar with an undo action
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(AppLocalizations.translate('bookmark_removed', 
@@ -280,23 +285,25 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
           label: AppLocalizations.translate('undo', 
               ref.read(languageProvider).languageCode),
           onPressed: () {
-            // TODO: ฟังก์ชัน Undo
+            // If undo is pressed, add the bookmark back
+            ref.read(bookmarkServiceProvider.notifier).addBookmark(bookmark.jobId, bookmark.jobData);
           },
         ),
       ),
     );
   }
 
-  void _shareJob(bookmark) {
-    // TODO: ใช้ share plugin จริง
+  void _shareJob(Bookmark bookmark) {
     final jobData = bookmark.jobData;
-    final shareText = '${jobData['title']} ที่ ${jobData['companyName']} - ดูรายละเอียดได้ที่แอป MVP Package';
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('แชร์: $shareText'),
-      ),
-    );
+    if (jobData == null) return;
+
+    final title = jobData['title'] ?? '';
+    final companyName = jobData['companyName'] ?? '';
+    // Note: Replace 'yourapp.com' with your actual app domain for deep linking
+    final jobUrl = 'https://yourapp.com/jobs/${bookmark.jobId}';
+    final shareText = '$title at $companyName\n\nFind out more: $jobUrl';
+
+    Share.share(shareText);
   }
 
   void _showClearAllDialog() {
@@ -314,7 +321,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
           ),
           FilledButton(
             onPressed: () {
-              // TODO: ล้างบุ๊คมาร์คทั้งหมด
+              ref.read(bookmarkServiceProvider.notifier).clearAllBookmarks();
               Navigator.pop(context);
             },
             child: Text(t('clear_all')),

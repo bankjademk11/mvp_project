@@ -54,7 +54,7 @@ class _MyApplicationsPageState extends ConsumerState<MyApplicationsPage>
       case ApplicationStatus.pending:
         return Colors.orange;
       case ApplicationStatus.reviewing:
-        return Colors.blue;
+        return const Color(0xFF059669); // Dark Green, from theme's secondaryColor
       case ApplicationStatus.interview:
         return Colors.purple;
       case ApplicationStatus.accepted:

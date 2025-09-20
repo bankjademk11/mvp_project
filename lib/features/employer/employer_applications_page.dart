@@ -49,10 +49,17 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
   void _fetchApplications() {
     final applicationService = ref.read(ApplicationService.applicationServiceProvider);
     final currentUser = ref.read(authProvider).user;
-    if (widget.jobId != null && currentUser != null) {
+    if (currentUser == null) {
+      _applicationsFuture = Future.value([]);
+      return;
+    }
+
+    if (widget.jobId != null) {
+      // Fetch applications for a specific job
       _applicationsFuture = applicationService.getApplicationsForEmployer(widget.jobId!, currentUser.uid);
     } else {
-      _applicationsFuture = Future.value([]);
+      // Fetch all applications for the employer
+      _applicationsFuture = applicationService.getAllApplicationsForEmployer(currentUser.uid);
     }
   }
 
@@ -292,7 +299,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                             ),
                           PopupMenuItem(
                             value: 'chat',
-                            child: Row(children: [const Icon(Icons.chat_bubble_outline, color: Colors.blue), const SizedBox(width: 8), Text(t('contact_applicant'))]),
+                            child: Row(children: [Icon(Icons.chat_bubble_outline, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 8), Text(t('contact_applicant'))]),
                           ),
                         ],
                         child: const Icon(Icons.more_vert, size: 16),

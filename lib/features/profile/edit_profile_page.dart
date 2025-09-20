@@ -646,25 +646,25 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.blue.withOpacity(0.3),
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                             ),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 Icons.info_outline,
-                                color: Colors.blue,
+                                color: Theme.of(context).colorScheme.primary,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   profileTip,
-                                  style: const TextStyle(
-                                    color: Colors.blue,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
                                     fontSize: 12,
                                   ),
                                 ),
