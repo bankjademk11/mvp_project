@@ -288,7 +288,12 @@ class _JobDetailViewState extends ConsumerState<_JobDetailView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // We pass the company logo from the company details section later
-                          CompanyLogoWidget(companyName: companyName, size: 64, borderRadius: 16),
+                          CompanyLogoWidget(
+                            logoUrl: job.data['companyLogoUrl'] as String?,
+                            companyName: companyName,
+                            size: 64,
+                            borderRadius: 16,
+                          ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(

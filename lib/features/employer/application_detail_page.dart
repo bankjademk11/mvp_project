@@ -67,6 +67,7 @@ class _ApplicationDetailView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final applicationData = application.data;
     
+    final applicantAvatarUrl = applicationData['applicantAvatarUrl'] as String?;
     final applicantName = applicationData['applicantName']?.toString() ?? t('unknown_applicant');
     final jobTitle = applicationData['jobTitle']?.toString() ?? t('unknown_job');
     final companyName = applicationData['companyName']?.toString() ?? t('unknown_company');
@@ -113,14 +114,19 @@ class _ApplicationDetailView extends ConsumerWidget {
                         CircleAvatar(
                           radius: 30,
                           backgroundColor: _getStatusColor(status).withOpacity(0.1),
-                          child: Text(
-                            applicantName.isNotEmpty ? applicantName.substring(0, 1).toUpperCase() : '?',
-                            style: TextStyle(
-                              color: _getStatusColor(status),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                            ),
-                          ),
+                          backgroundImage: (applicantAvatarUrl != null && applicantAvatarUrl.isNotEmpty)
+                              ? NetworkImage(applicantAvatarUrl)
+                              : null,
+                          child: (applicantAvatarUrl == null || applicantAvatarUrl.isEmpty)
+                              ? Text(
+                                  applicantName.isNotEmpty ? applicantName.substring(0, 1).toUpperCase() : '?',
+                                  style: TextStyle(
+                                    color: _getStatusColor(status),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
+                                  ),
+                                )
+                              : null,
                         ),
                         const SizedBox(width: 16),
                         Expanded(

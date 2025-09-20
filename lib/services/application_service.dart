@@ -57,7 +57,41 @@ class ApplicationService {
         collectionId: _applicationsCollectionId,
         documentId: applicationId,
       );
-      return response;
+
+      // Extract applicant userId
+      final applicantId = response.data['userId'] as String?;
+
+      if (applicantId != null) {
+        // Fetch applicant's profile to get avatar URL
+        final authService = AuthService(_appwriteService); // Create an instance of AuthService
+        final applicantProfile = await authService.getUserProfile(applicantId);
+
+        if (applicantProfile != null) {
+          String? applicantAvatarUrl;
+          if (applicantProfile.role == 'employer') {
+            applicantAvatarUrl = applicantProfile.companyLogoUrl;
+          } else {
+            applicantAvatarUrl = applicantProfile.avatarUrl;
+          }
+
+          // Create a new Document object with the added applicantAvatarUrl
+          // This is a workaround as models.Document is immutable
+          return models.Document(
+            $id: response.$id,
+            $collectionId: response.$collectionId,
+            $databaseId: response.$databaseId,
+            $createdAt: response.$createdAt,
+            $updatedAt: response.$updatedAt,
+            $permissions: response.$permissions,
+            $sequence: response.$sequence, // Ensure $sequence is included
+            data: {
+              ...response.data,
+              'applicantAvatarUrl': applicantAvatarUrl, // Add the avatar URL
+            },
+          );
+        }
+      }
+      return response; // Return original response if no avatar found or applicantId is null
     } on appwrite.AppwriteException catch (e) {
       // If the document is not found, return null
       if (e.code == 404) {

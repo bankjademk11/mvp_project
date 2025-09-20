@@ -190,6 +190,8 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
     final resumeUrl = applicationData['resumeUrl'] as String?;
     final bool hasCv = resumeUrl != null && resumeUrl.isNotEmpty;
 
+    final applicantAvatarUrl = applicationData['applicantAvatarUrl'] as String?;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -210,10 +212,19 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: _getStatusColor(status).withOpacity(0.1),
-                    child: Text(
-                      applicantName.isNotEmpty ? applicantName.substring(0, 1).toUpperCase() : '?',
-                      style: TextStyle(color: _getStatusColor(status), fontWeight: FontWeight.bold),
-                    ),
+                    backgroundImage: (applicantAvatarUrl != null && applicantAvatarUrl.isNotEmpty)
+                        ? _isValidUrl(applicantAvatarUrl) 
+                            ? NetworkImage(applicantAvatarUrl)
+                            : null
+                        : null,
+                    child: (applicantAvatarUrl == null || 
+                            applicantAvatarUrl.isEmpty || 
+                            !_isValidUrl(applicantAvatarUrl))
+                        ? Text(
+                            applicantName.isNotEmpty ? applicantName.substring(0, 1).toUpperCase() : '?',
+                            style: TextStyle(color: _getStatusColor(status), fontWeight: FontWeight.bold),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -295,6 +306,16 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
         ),
       ),
     );
+  }
+
+  // Helper method to validate URL format
+  bool _isValidUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.hasScheme && uri.hasAuthority;
+    } catch (e) {
+      return false;
+    }
   }
 
   Color _getStatusColor(String status) {

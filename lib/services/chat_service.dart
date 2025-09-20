@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
+import 'package:appwrite/models.dart' as appwrite_models;
 import 'appwrite_service.dart';
-import '../models/user.dart';
+import '../models/user.dart' as local_user;
 import 'auth_service.dart';
 
 // Chat message model
@@ -276,6 +276,30 @@ class ChatService extends StateNotifier<ChatState> {
       final allDocuments = [...response1.documents, ...response2.documents];
       final uniqueDocuments = { for (var doc in allDocuments) doc.$id : doc }.values.toList();
 
+      // Collect all unique otherUserIds for batch fetching
+      final Set<String> otherUserIds = {};
+      for (var doc in uniqueDocuments) {
+        final otherUserId = doc.data['participant1Id'] == user.uid 
+            ? doc.data['participant2Id'] as String
+            : doc.data['participant1Id'] as String;
+        otherUserIds.add(otherUserId);
+      }
+
+      // Fetch all other user profiles in a single query
+      final Map<String, local_user.User> otherUserProfilesMap = {};
+      if (otherUserIds.isNotEmpty) {
+        final profilesResponse = await appwriteService.databases.listDocuments(
+          databaseId: '68bbb9e6003188d8686f', // mvpDB
+          collectionId: 'user_profiles',
+          queries: [
+            Query.equal('\$id', otherUserIds.toList()), // Fetch profiles by their IDs
+          ],
+        );
+        for (var doc in profilesResponse.documents) {
+          otherUserProfilesMap[doc.$id] = local_user.User.fromJson(doc.data); // Assuming User.fromJson can map from Document.data
+        }
+      }
+
       final conversations = <ChatConversation>[];
       
       for (var doc in uniqueDocuments) {
@@ -332,9 +356,9 @@ class ChatService extends StateNotifier<ChatState> {
         );
         final unreadCount = unreadCountResponse.total;
         
-        // Fetch avatar URL for the other user
+        // Get avatar URL from the pre-fetched map
         String? otherUserAvatarUrl;
-        final otherUserProfile = await ref.read(authServiceProvider).getUserProfile(otherUserId);
+        final otherUserProfile = otherUserProfilesMap[otherUserId];
         if (otherUserProfile != null) {
           otherUserAvatarUrl = otherUserProfile.role == 'employer'
               ? otherUserProfile.companyLogoUrl
