@@ -188,7 +188,7 @@ class ChatListPage extends ConsumerWidget {
             if (conversation.unreadCount > 0) {
               ref.read(chatServiceProvider.notifier).markAsRead(conversation.chatId);
             }
-            context.push('/chats/${conversation.chatId}');
+            context.push('/chats/${conversation.chatId}?otherUserId=${conversation.withUserId}');
           },
           onLongPress: () => _showChatOptions(context, ref, conversation, languageCode),
           borderRadius: BorderRadius.circular(12),

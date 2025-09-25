@@ -417,11 +417,11 @@ class _ApplicationDetailView extends ConsumerWidget {
                     }
                     
                     // Create or get existing chat
-                    final chatId = await chatService.createChat(applicantId, applicantName);
+                    final chatId = await chatService.findOrCreateChat(applicantId);
                     
                     // Navigate to chat room
                     if (context.mounted) {
-                      context.push('/chats/$chatId');
+                      context.push('/chats/$chatId?otherUserId=$applicantId');
                     }
                   } catch (e) {
                     if (context.mounted) {

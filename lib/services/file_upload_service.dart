@@ -16,9 +16,10 @@ class FileUploadService {
   static const String _profilePicturesBucketId = 'company_logos';
   static const String _resumesBucketId = 'company_logos'; // Using the same bucket as company logos to save resources
   static const String _companyLogosBucketId = 'company_logos'; // แยก bucket สำหรับ company logos
-  
+  // NOTE: Due to free tier limitations, all files are stored in 'company_logos' bucket.
+
   FileUploadService(this._appwriteService);
-  
+
   Future<String?> uploadProfilePicture(appwrite.InputFile file) async {
     try {
       final response = await _appwriteService.storage.createFile(
@@ -65,6 +66,21 @@ class FileUploadService {
     }
   }
 
+  Future<String?> uploadVerificationDocument(appwrite.InputFile file) async {
+    try {
+      final response = await _appwriteService.storage.createFile(
+        bucketId: _companyLogosBucketId,
+        fileId: appwrite.ID.unique(),
+        file: file,
+      );
+      
+      // Return the file URL
+      return 'https://cloud.appwrite.io/v1/storage/buckets/$_companyLogosBucketId/files/${response.$id}/view?project=68bbb97a003baa58bb9c';
+    } on appwrite.AppwriteException catch (e) {
+      throw Exception('Failed to upload verification document: ${e.message}');
+    }
+  }
+
   Future<void> deleteFile(String bucketId, String fileId) async {
     try {
       await _appwriteService.storage.deleteFile(
@@ -84,6 +100,7 @@ class FileUploadWidget extends ConsumerStatefulWidget {
   final String uploadButtonText;
   final Function(String?) onFileUploaded;
   final bool isDocument;
+  final bool isVerification;
 
   const FileUploadWidget({
     super.key,
@@ -93,6 +110,7 @@ class FileUploadWidget extends ConsumerStatefulWidget {
     required this.uploadButtonText,
     required this.onFileUploaded,
     this.isDocument = false,
+    this.isVerification = false,
   });
 
   @override
@@ -105,8 +123,8 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
 
   Future<void> _handleUpload() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: widget.isDocument ? FileType.custom : FileType.image,
-      allowedExtensions: widget.isDocument ? ['pdf', 'doc', 'docx'] : null,
+      type: widget.isDocument || widget.isVerification ? FileType.custom : FileType.image,
+      allowedExtensions: widget.isDocument ? ['pdf', 'doc', 'docx'] : (widget.isVerification ? ['jpg', 'jpeg', 'png'] : null),
     );
 
     if (result == null || result.files.isEmpty) {
@@ -133,7 +151,9 @@ class _FileUploadWidgetState extends ConsumerState<FileUploadWidget> {
       final appwriteService = ref.read(appwriteServiceProvider);
       final fileUploadService = FileUploadService(appwriteService);
       String? fileUrl;
-      if (widget.isDocument) {
+      if (widget.isVerification) {
+        fileUrl = await fileUploadService.uploadVerificationDocument(file);
+      } else if (widget.isDocument) {
         fileUrl = await fileUploadService.uploadResume(file);
       } else {
         fileUrl = await fileUploadService.uploadProfilePicture(file);

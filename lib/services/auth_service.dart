@@ -445,6 +445,10 @@ class AuthService {
     String? bio,
     String? resumeUrl,
     String? avatarUrl,
+    String? idCardUrl,
+    String? selfieWithIdUrl,
+    String? verificationStatus,
+    String? verificationPinHash,
     // Employer-specific fields
     String? companyName,
     String? companySize,
@@ -480,6 +484,10 @@ class AuthService {
       if (province != null) profileData['province'] = province;
       if (skills != null) profileData['skills'] = skills;
       if (bio != null) profileData['bio'] = bio;
+      if (idCardUrl != null) profileData['idCardUrl'] = idCardUrl;
+      if (selfieWithIdUrl != null) profileData['selfieWithIdUrl'] = selfieWithIdUrl;
+      if (verificationStatus != null) profileData['verificationStatus'] = verificationStatus;
+      if (verificationPinHash != null) profileData['verificationPinHash'] = verificationPinHash;
 
       // Always include resumeUrl and avatarUrl if they are provided in the function call,
       // even if their value is null, to allow clearing them in Appwrite.
@@ -590,6 +598,10 @@ class AuthService {
       bio: profileDocument?.data['bio'] as String?,
       resumeUrl: profileDocument?.data['resumeUrl'] as String?,
       avatarUrl: profileDocument?.data['avatarUrl'] as String?,
+      idCardUrl: profileDocument?.data['idCardUrl'] as String?,
+      selfieWithIdUrl: profileDocument?.data['selfieWithIdUrl'] as String?,
+      verificationStatus: profileDocument?.data['verificationStatus'] as String?,
+      verificationPinHash: profileDocument?.data['verificationPinHash'] as String?,
       // Employer-specific fields
       companyName: profileDocument?.data['companyName'] as String?,
       companySize: profileDocument?.data['companySize'] as String?,
@@ -624,6 +636,10 @@ class AuthService {
         bio: profileDocument.data['bio'] as String?,
         resumeUrl: profileDocument.data['resumeUrl'] as String?,
         avatarUrl: profileDocument.data['avatarUrl'] as String?,
+        idCardUrl: profileDocument.data['idCardUrl'] as String?,
+        selfieWithIdUrl: profileDocument.data['selfieWithIdUrl'] as String?,
+        verificationStatus: profileDocument.data['verificationStatus'] as String?,
+        verificationPinHash: profileDocument.data['verificationPinHash'] as String?,
         companyName: profileDocument.data['companyName'] as String?,
         companySize: profileDocument.data['companySize'] as String?,
         industry: profileDocument.data['industry'] as String?,
@@ -809,6 +825,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? bio,
     String? resumeUrl,
     String? avatarUrl,
+    String? idCardUrl,
+    String? selfieWithIdUrl,
+    String? verificationStatus,
+    String? verificationPinHash,
     // Employer-specific fields
     String? companyName,
     String? companySize,
@@ -834,6 +854,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         bio: bio,
         resumeUrl: resumeUrl,
         avatarUrl: avatarUrl,
+        idCardUrl: idCardUrl,
+        selfieWithIdUrl: selfieWithIdUrl,
+        verificationStatus: verificationStatus,
+        verificationPinHash: verificationPinHash,
         companyName: companyName,
         companySize: companySize,
         industry: industry,

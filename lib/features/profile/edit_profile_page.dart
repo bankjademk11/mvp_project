@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appwrite/appwrite.dart' as appwrite; // Add this import with alias
 import 'package:file_picker/file_picker.dart'; // Add this import
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import '../../services/auth_service.dart';
 import '../../services/file_upload_service.dart';
 import '../../common/widgets/primary_button.dart';
@@ -20,11 +22,16 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _confirmPinController = TextEditingController();
   
   String? _selectedProvince;
   List<String> _selectedSkills = [];
   String? _profilePictureUrl;
   String? _resumeUrl;
+  String? _idCardUrl;
+  String? _selfieWithIdUrl;
+  String? _verificationStatus;
   bool _isLoading = false;
   bool _isDataLoaded = false;
   
@@ -68,6 +75,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _nameController.dispose();
     _phoneController.dispose();
     _bioController.dispose();
+    _pinController.dispose();
+    _confirmPinController.dispose();
     super.dispose();
   }
 
@@ -87,6 +96,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           _selectedSkills = user?.skills ?? [];
           _profilePictureUrl = user?.avatarUrl;
           _resumeUrl = user?.resumeUrl;
+          _idCardUrl = user?.idCardUrl;
+          _selfieWithIdUrl = user?.selfieWithIdUrl;
+          _verificationStatus = user?.verificationStatus;
           _isDataLoaded = true;
         });
       }
@@ -112,89 +124,80 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       print('การตรวจสอบข้อมูลล้มเหลว');
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       print('เปลี่ยนสถานะเป็นกำลังโหลด...');
     });
-    
+
     try {
-      // Get Appwrite service
       final appwriteService = ref.read(appwriteServiceProvider);
-      
-      // Get current user
       final currentUser = ref.read(authProvider).user;
       if (currentUser == null) {
         print('ไม่พบข้อมูลผู้ใช้');
         throw Exception('User not found');
       }
-      
+
       print('กำลังเตรียมข้อมูลโปรไฟล์...');
-      // Prepare profile data
-      final profileData = {
-        'userId': currentUser.uid, // เพิ่ม userId สำหรับการสร้างเอกสารใหม่
+      final profileData = <String, dynamic>{
         'phone': _phoneController.text,
         'province': _selectedProvince,
         'skills': _selectedSkills,
         'bio': _bioController.text,
         'avatarUrl': _profilePictureUrl,
         'resumeUrl': _resumeUrl,
+        'idCardUrl': _idCardUrl,
+        'selfieWithIdUrl': _selfieWithIdUrl,
+        // Preserve existing verification data first
+        'verificationStatus': currentUser.verificationStatus,
+        'verificationPinHash': currentUser.verificationPinHash,
       };
+
+      // Handle NEW verification status and PIN if a new PIN is entered
+      if (_pinController.text.isNotEmpty) {
+        profileData['verificationStatus'] = 'pending';
+        final pin = _pinController.text;
+        final bytes = utf8.encode(pin);
+        final digest = sha256.convert(bytes);
+        profileData['verificationPinHash'] = digest.toString();
+      }
+
       print('ข้อมูลโปรไฟล์: $profileData');
-      
-                    print('กำลังส่งข้อมูลไปยัง Appwrite...');
-                    
-                    // Update display name if it has changed
-                    if (_nameController.text != currentUser.displayName) {
-                      print('กำลังอัปเดตชื่อผู้ใช้...');
-                      await ref.read(authProvider.notifier).updateDisplayName(_nameController.text);
-                      print('อัปเดตชื่อผู้ใช้สำเร็จ');
-                    }
-      
-                    try {
-                      // พยายามอัปเดตเอกสารก่อน
-                      await appwriteService.databases.updateDocument(
-                        databaseId: '68bbb9e6003188d8686f',
-                        collectionId: 'user_profiles',
-                        documentId: currentUser.uid,
-                        data: profileData,
-                      );
-                      print('อัปเดตข้อมูลสำเร็จใน Appwrite');
-                    } on appwrite.AppwriteException catch (e) {
-                      if (e.code == 404) {
-                        // ถ้าไม่พบเอกสาร (404) ให้สร้างเอกสารใหม่
-                        print('ไม่พบเอกสาร กำลังสร้างเอกสารใหม่...');
-                        await appwriteService.databases.createDocument(
-                          databaseId: '68bbb9e6003188d8686f',
-                          collectionId: 'user_profiles',
-                          documentId: currentUser.uid, // ใช้ userId เป็น documentId
-                          data: profileData,
-                          permissions: [ // เพิ่ม permissions สำหรับเอกสารใหม่
-                            appwrite.Permission.read(appwrite.Role.user(currentUser.uid)),
-                            appwrite.Permission.update(appwrite.Role.user(currentUser.uid)),
-                            appwrite.Permission.delete(appwrite.Role.user(currentUser.uid)),
-                          ],
-                        );
-                        print('สร้างข้อมูลสำเร็จใน Appwrite');
-                      } else {
-                        // ถ้าเป็น error อื่น ให้ rethrow
-                        rethrow;
-                      }
-                    }
-                    
-                    // Refresh user data
-                    await ref.read(authProvider.notifier).getCurrentUser();
-                    print('โหลดข้อมูลผู้ใช้ใหม่แล้ว');      
+
+      print('กำลังส่งข้อมูลไปยัง Appwrite...');
+
+      if (_nameController.text != currentUser.displayName) {
+        print('กำลังอัปเดตชื่อผู้ใช้...');
+        await ref.read(authProvider.notifier).updateDisplayName(_nameController.text);
+        print('อัปเดตชื่อผู้ใช้สำเร็จ');
+      }
+
+      await ref.read(authProvider.notifier).updateUserProfile(
+        phone: _phoneController.text,
+        province: _selectedProvince,
+        skills: _selectedSkills,
+        bio: _bioController.text,
+        avatarUrl: _profilePictureUrl,
+        resumeUrl: _resumeUrl,
+        // Pass all verification data to the service
+        idCardUrl: _idCardUrl,
+        selfieWithIdUrl: _selfieWithIdUrl,
+        verificationStatus: profileData['verificationStatus'],
+        verificationPinHash: profileData['verificationPinHash'],
+      );
+
+      print('อัปเดตข้อมูลสำเร็จผ่าน AuthService');
+
       if (mounted) {
         print('Widget ยัง mounted อยู่ กำลังอัปเดต UI...');
         setState(() {
           _isLoading = false;
         });
-        
+
         final languageState = ref.read(languageProvider);
         final languageCode = languageState.languageCode;
         final profileSaved = AppLocalizations.translate('profile_saved', languageCode);
-        
+
         print('กำลังแสดง SnackBar...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -202,11 +205,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         print('กำลังปิดหน้าต่าง...');
         Navigator.pop(context);
       } else {
-         print('Widget ถูก dispose ไปแล้ว ไม่สามารถอัปเดต UI ได้');
+        print('Widget ถูก dispose ไปแล้ว ไม่สามารถอัปเดต UI ได้');
       }
     } catch (e, stackTrace) {
       print('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์: $e');
@@ -215,11 +218,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         setState(() {
           _isLoading = false;
         });
-        
+
         final languageState = ref.read(languageProvider);
         final languageCode = languageState.languageCode;
         final error = AppLocalizations.translate('error', languageCode);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$error: $e'),
@@ -671,6 +674,132 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               ),
                             ],
                           ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+
+                    // Identity Verification Section
+                    _buildFormSection(
+                      title: 'Identity Verification',
+                      icon: Icons.verified_user_outlined,
+                      children: [
+                        // Verification Status
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _verificationStatus == 'verified'
+                                ? Colors.green.withOpacity(0.1)
+                                : (_verificationStatus == 'pending'
+                                    ? Colors.orange.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.1)),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _verificationStatus == 'verified'
+                                  ? Colors.green
+                                  : (_verificationStatus == 'pending'
+                                      ? Colors.orange
+                                      : Colors.grey),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _verificationStatus == 'verified'
+                                    ? Icons.check_circle
+                                    : (_verificationStatus == 'pending'
+                                        ? Icons.hourglass_empty
+                                        : Icons.info_outline),
+                                color: _verificationStatus == 'verified'
+                                    ? Colors.green
+                                    : (_verificationStatus == 'pending'
+                                        ? Colors.orange
+                                        : Colors.grey),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Status: ${_verificationStatus ?? 'unverified'}',
+                                  style: TextStyle(
+                                    color: _verificationStatus == 'verified'
+                                        ? Colors.green
+                                        : (_verificationStatus == 'pending'
+                                            ? Colors.orange
+                                            : Colors.grey),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ID Card Upload
+                        FileUploadWidget(
+                          title: 'ID Card/Passport',
+                          currentFileUrl: _idCardUrl,
+                          icon: Icons.credit_card,
+                          uploadButtonText: 'Upload ID Card',
+                          onFileUploaded: (url) {
+                            setState(() {
+                              _idCardUrl = url;
+                            });
+                          },
+                          isVerification: true,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Selfie with ID Upload
+                        FileUploadWidget(
+                          title: 'Selfie with ID',
+                          currentFileUrl: _selfieWithIdUrl,
+                          icon: Icons.camera_alt_outlined,
+                          uploadButtonText: 'Upload Selfie',
+                          onFileUploaded: (url) {
+                            setState(() {
+                              _selfieWithIdUrl = url;
+                            });
+                          },
+                          isVerification: true,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // PIN fields
+                        TextFormField(
+                          controller: _pinController,
+                          keyboardType: TextInputType.number,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Create or Update 4-Digit PIN',
+                            hintText: 'Leave empty to keep current PIN',
+                            prefixIcon: const Icon(Icons.pin),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty && value.length != 4) {
+                              return 'PIN must be 4 digits';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmPinController,
+                          keyboardType: TextInputType.number,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Confirm New PIN',
+                            hintText: 'Confirm your new 4-digit PIN',
+                            prefixIcon: const Icon(Icons.pin),
+                          ),
+                          validator: (value) {
+                            if (_pinController.text.isNotEmpty && value != _pinController.text) {
+                              return 'PINs do not match';
+                            }
+                            return null;
+                          },
                         ),
                       ],
                     ),

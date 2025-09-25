@@ -62,17 +62,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       NavigationDestination(
         icon: const Icon(Icons.dashboard_outlined),
         selectedIcon: const Icon(Icons.dashboard),
-        label: 'ແດຊບອີດ',
+        label: t('dashboard'),
       ),
       NavigationDestination(
         icon: const Icon(Icons.work_outline),
         selectedIcon: const Icon(Icons.work),
-        label: 'ຈັດການງານ',
+        label: t('manage_jobs'),
       ),
       NavigationDestination(
         icon: const Icon(Icons.people_outline),
         selectedIcon: const Icon(Icons.people),
-        label: 'ຜູ້ສະໝັກ',
+        label: t('applicants'),
       ),
       NavigationDestination(
         icon: const Icon(Icons.chat_bubble_outline),
@@ -101,7 +101,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       NavigationDestination(
         icon: const Icon(Icons.bookmark_outline),
         selectedIcon: const Icon(Icons.bookmark),
-        label: 'ບຸກມາກ',
+        label: t('bookmarks'),
       ),
       NavigationDestination(
         icon: const Icon(Icons.chat_bubble_outline),

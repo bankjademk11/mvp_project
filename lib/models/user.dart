@@ -10,6 +10,12 @@ class User {
   final String? resumeUrl;
   final String? avatarUrl;
   
+  // Verification fields
+  final String? idCardUrl;
+  final String? selfieWithIdUrl;
+  final String? verificationStatus;
+  final String? verificationPinHash;
+
   // ข้อมูลสำหรับนายจ้าง
   final String? companyName;
   final String? companySize;
@@ -31,6 +37,10 @@ class User {
     this.bio,
     this.resumeUrl,
     this.avatarUrl,
+    this.idCardUrl,
+    this.selfieWithIdUrl,
+    this.verificationStatus,
+    this.verificationPinHash,
     // ข้อมูลบริษัท
     this.companyName,
     this.companySize,
@@ -54,6 +64,10 @@ class User {
       bio: json['bio'],
       resumeUrl: json['resumeUrl'],
       avatarUrl: json['avatarUrl'],
+      idCardUrl: json['idCardUrl'],
+      selfieWithIdUrl: json['selfieWithIdUrl'],
+      verificationStatus: json['verificationStatus'],
+      verificationPinHash: json['verificationPinHash'],
       // ข้อมูลบริษัท
       companyName: json['companyName'],
       companySize: json['companySize'],
@@ -78,6 +92,10 @@ class User {
       'bio': bio,
       'resumeUrl': resumeUrl,
       'avatarUrl': avatarUrl,
+      'idCardUrl': idCardUrl,
+      'selfieWithIdUrl': selfieWithIdUrl,
+      'verificationStatus': verificationStatus,
+      'verificationPinHash': verificationPinHash,
       // ข้อมูลบริษัท
       'companyName': companyName,
       'companySize': companySize,
@@ -101,6 +119,10 @@ class User {
     String? bio,
     String? resumeUrl,
     String? avatarUrl,
+    String? idCardUrl,
+    String? selfieWithIdUrl,
+    String? verificationStatus,
+    String? verificationPinHash,
     // ข้อมูลบริษัท
     String? companyName,
     String? companySize,
@@ -122,6 +144,10 @@ class User {
       bio: bio ?? this.bio,
       resumeUrl: resumeUrl ?? this.resumeUrl,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      idCardUrl: idCardUrl ?? this.idCardUrl,
+      selfieWithIdUrl: selfieWithIdUrl ?? this.selfieWithIdUrl,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationPinHash: verificationPinHash ?? this.verificationPinHash,
       companyName: companyName ?? this.companyName,
       companySize: companySize ?? this.companySize,
       industry: industry ?? this.industry,

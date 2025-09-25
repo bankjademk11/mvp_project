@@ -438,7 +438,7 @@ class _EmployerApplicationsPageState extends ConsumerState<EmployerApplicationsP
       }
       
       // Create or get existing chat
-      final chatId = await chatService.createChat(applicantId, applicantName);
+      final chatId = await chatService.findOrCreateChat(applicantId);
       
       // Navigate to chat room
       context.push('/chats/$chatId');

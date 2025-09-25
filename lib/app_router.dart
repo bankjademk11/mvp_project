@@ -213,7 +213,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/chats/:id',
-        builder: (c, s) => ChatRoomPage(chatId: s.pathParameters['id']!),
+        builder: (c, s) => ChatRoomPage(
+          chatId: s.pathParameters['id']!,
+          otherUserId: s.uri.queryParameters['otherUserId']!,
+        ),
       ),
       GoRoute(
         path: '/company/:id',
@@ -290,7 +293,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/chats/:id',
-      builder: (c, s) => ChatRoomPage(chatId: s.pathParameters['id']!),
+      builder: (c, s) => ChatRoomPage(
+        chatId: s.pathParameters['id']!,
+        otherUserId: s.uri.queryParameters['otherUserId']!,
+      ),
     ),
     GoRoute(
       path: '/company/:id',
